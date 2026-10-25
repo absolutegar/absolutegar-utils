@@ -1,25 +1,67 @@
 import hashlib
 import hmac
 import time
-from typing import Dict, Any
+from typing import Dict, Optional
 
-def generate_signature(api_secret: str, message: str) -> str:
-    return hmac.new(
-        api_secret.encode('utf-8'),
-        message.encode('utf-8'),
-        hashlib.sha256
-    ).hexdigest()
 
-def format_payload(params: Dict[str, Any]) -> str:
-    sorted_keys = sorted(params.keys())
-    return '&'.join([f"{k}={params[k]}" for k in sorted_keys])
+class CryptoHandler:
+    """Handler for signing and verifying cryptographic API requests."""
 
-def sign_request(api_secret: str, params: Dict[str, Any]) -> Dict[str, Any]:
-    params['timestamp'] = int(time.time() * 1000)
-    query_string = format_payload(params)
-    params['signature'] = generate_signature(api_secret, query_string)
-    return params
+    def __init__(self, api_key: str, api_secret: str) -> None:
+        """Initialize the handler with API credentials.
 
-def validate_order_data(data: Dict[str, Any]) -> bool:
-    required = {'symbol', 'side', 'type', 'quantity'}
-    return all(key in data for key in required)
+        Args:
+            api_key: Public API identifier.
+            api_secret: Secret key used for HMAC signing.
+        """
+        self.api_key = api_key
+        self.api_secret = api_secret.encode("utf-8")
+
+    def generate_signature(self, payload: str, timestamp: int) -> str:
+        """Generate HMAC SHA256 signature for API authentication.
+
+        Args:
+            payload: Stringified request payload.
+            timestamp: Unix timestamp in milliseconds.
+
+        Returns:
+            Hexadecimal HMAC signature string.
+        """
+        message = f"{timestamp}{payload}".encode("utf-8")
+        return hmac.new(self.api_secret, message, hashlib.sha256).hexdigest()
+
+    def verify_signature(self, payload: str, timestamp: int, signature: str) -> bool:
+        """Verify an incoming payload signature against expected digest.
+
+        Args:
+            payload: Stringified payload received.
+            timestamp: Unix timestamp in milliseconds.
+            signature: Hexadecimal signature string to verify.
+
+        Returns:
+            True if signature matches, False otherwise.
+        """
+        expected = self.generate_signature(payload, timestamp)
+        return hmac.compare_digest(expected, signature)
+
+    def build_headers(self, payload: str, extra: Optional[Dict[str, str]] = None) -> Dict[str, str]:
+        """Build HTTP authentication headers for API requests.
+
+        Args:
+            payload: Stringified payload to sign.
+            extra: Optional additional headers to merge.
+
+        Returns:
+            Dictionary containing complete request headers.
+        """
+        timestamp = int(time.time() * 1000)
+        sig = self.generate_signature(payload, timestamp)
+        headers = {
+            "X-API-KEY": self.api_key,
+            "X-API-SIGNATURE": sig,
+            "X-API-TIMESTAMP": str(timestamp),
+            "Content-Type": "application/json",
+        }
+        if extra:
+            headers.update(extra)
+        return headers
