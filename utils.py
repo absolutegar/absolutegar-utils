@@ -1,55 +1,40 @@
-import re
-from decimal import Decimal, InvalidOperation
-from typing import Any, Dict, List
+import asyncio
+import functools
+import logging
+import random
+from typing import Any, Callable, Tuple, Type
 
-HEX_ADDRESS_PATTERN = re.compile(r"^0x[a-fA-F0-9]{40}$")
-
-
-class InvalidPayloadError(Exception):
-    pass
+logger = logging.getLogger(__name__)
 
 
-def validate_transaction(tx: Dict[str, Any]) -> Dict[str, Any]:
-    required_fields = {"sender", "receiver", "amount", "symbol"}
-    if not required_fields.issubset(tx.keys()):
-        missing = sorted(list(required_fields - tx.keys()))
-        raise InvalidPayloadError(f"Missing required fields: {missing}")
+def retry_async(
+    retries: int = 3,
+    delay: float = 1.0,
+    backoff: float = 2.0,
+    exceptions: Tuple[Type[Exception], ...] = (Exception,),
+) -> Callable:
+    def decorator(func: Callable) -> Callable:
+        @functools.wraps(func)
+        async def wrapper(*args: Any, **kwargs: Any) -> Any:
+            current_delay = delay
+            for attempt in range(1, retries + 1):
+                try:
+                    return await func(*args, **kwargs)
+                except exceptions as err:
+                    if attempt == retries:
+                        logger.error(
+                            f"Operation failed after {retries} attempts: {err}"
+                        )
+                        raise
+                    jitter = random.uniform(0, 0.1 * current_delay)
+                    sleep_time = current_delay + jitter
+                    logger.warning(
+                        f"Attempt {attempt}/{retries} failed ({err}). "
+                        f"Retrying in {sleep_time:.2f}s..."
+                    )
+                    await asyncio.sleep(sleep_time)
+                    current_delay *= backoff
 
-    if not HEX_ADDRESS_PATTERN.match(str(tx["sender"] me if "sender" in tx else "")):
-        raise InvalidPayloadError(f"Invalid sender address: {tx.get('sender')}")
+        return wrapper
 
-    if not HEX_ADDRESS_PATTERN.match(str(tx.get("receiver", ""))):
-        raise InvalidPayloadError(f"Invalid receiver address: {tx.get('receiver')}")
-
-    try:
-        amount = Decimal(str(tx["amount"]))
-        if amount <= 0:
-            raise InvalidPayloadError("Amount must be positive")
-    except (InvalidOperation, TypeError):
-        raise InvalidPayloadError(f"Invalid amount: {tx.get('amount')}")
-
-    symbol = str(tx.get("symbol", "")).strip().upper()
-    if not symbol.isalnum():
-        raise InvalidPayloadError(f"Invalid asset symbol: {tx.get('symbol')}")
-
-    return {
-        "sender": str(tx["sender"]).lower(),
-        "receiver": str(tx["receiver"]).lower(),
-        "amount": amount,
-        "symbol": symbol,
-    }
-
-
-def process_transaction_batch(
-    batch: List[Dict[str, Any]]
-) -> List[Dict[str, Any]]:
-    valid_records = []
-    for raw_item in batch:
-        if not isinstance(raw_item, dict):
-            continue
-        try:
-            cleaned = validate_transaction(raw_item)
-            valid_records.append(cleaned)
-        except InvalidPayloadError:
-            continue
-    return valid_records
+    return decorator
