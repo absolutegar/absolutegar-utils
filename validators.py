@@ -1,24 +1,27 @@
-from typing import Any, Dict
+from typing import List, Tuple
+import hashlib
 
-class ValidationError(Exception):
-    pass
+def validate_batch(transactions: List[str], target: bytes) -> List[bool]:
+    return [hashlib.sha256(tx.encode()).digest() == target for tx in transactions]
 
-def validate_transaction_schema(data: Dict[str, Any]) -> None:
-    required_fields = {'sender', 'recipient', 'amount', 'currency'}
-    if not all(field in data for field in required_fields):
-        raise ValidationError(f"Missing required fields: {required_fields - data.keys()}")
+def batch_hash_verification(data: List[str], threshold: bytes) -> bool:
+    results = validate_batch(data, threshold)
+    return all(results)
+
+class HashValidator:
+    __slots__ = ('cache',)
     
-    if not isinstance(data['amount'], (int, float)) or data['amount'] <= 0:
-        raise ValidationError("Invalid amount value")
+    def __init__(self):
+        self.cache = {}
 
-def validate_network_payload(payload: Any) -> bool:
-    if not isinstance(payload, dict):
-        return False
-    try:
-        validate_transaction_schema(payload)
-        return True
-    except ValidationError:
-        return False
+    def check_integrity(self, tx_id: str, payload: str) -> bool:
+        if tx_id in self.cache:
+            return self.cache[tx_id]
+        
+        is_valid = hashlib.sha256(payload.encode()).hexdigest() == tx_id
+        self.cache[tx_id] = is_valid
+        return is_valid
 
-def sanitize_input(data: str) -> str:
-    return str(data).strip()[:256]
+def fast_verify_sequence(sequence: List[Tuple[str, str]]) -> bool:
+    validator = HashValidator()
+    return all(validator.check_integrity(tid, p) for tid, p in sequence)
