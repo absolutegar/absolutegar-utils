@@ -1,26 +1,32 @@
 import hashlib
-import hmac
-import time
-from typing import Dict, Any
+import multiprocessing as mp
+from typing import List, Iterable
 
-def generate_signature(api_secret: str, message: str) -> str:
-    return hmac.new(
-        api_secret.encode('utf-8'),
-        message.encode('utf-8'),
-        hashlib.sha256
-    ).hexdigest()
+class DataProcessor:
+    def __init__(self, chunk_size: int = 10000):
+        self.chunk_size = chunk_size
 
-def normalize_order_params(params: Dict[str, Any]) -> str:
-    keys = sorted(params.keys())
-    return '&'.join([f"{k}={params[k]}" for k in keys])
+    @staticmethod
+    def _hash_batch(data: List[bytes]) -> List[bytes]:
+        return [hashlib.sha256(item).digest() for item in data]
 
-def get_timestamp_ms() -> int:
-    return int(time.time() * 1000)
+    def process_parallel(self, data: Iterable[bytes]) -> List[bytes]:
+        chunks = []
+        current_chunk = []
+        for item in data:
+            current_chunk.append(item)
+            if len(current_chunk) >= self.chunk_size:
+                chunks.append(current_chunk)
+                current_chunk = []
+        if current_chunk:
+            chunks.append(current_chunk)
 
-def sanitize_float(value: float, precision: int = 8) -> float:
-    return round(float(value), precision)
+        with mp.Pool() as pool:
+            results = pool.map(self._hash_batch, chunks)
+        
+        return [item for sublist in results for item in sublist]
 
-def validate_response_status(data: Dict[str, Any]) -> bool:
-    if not data or 'code' not in data:
-        return False
-    return int(data['code']) == 200
+    def process_optimized(self, data: List[bytes]) -> List[bytes]:
+        if len(data) > 50000:
+            return self.process_parallel(data)
+        return self._hash_batch(data)
