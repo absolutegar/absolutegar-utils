@@ -1,28 +1,26 @@
-from typing import Dict, List, Optional, Union
+import hashlib
+import hmac
+import time
+from typing import Dict, Any
 
-class CryptoProcessor:
-    """Handles cryptographic data transformation and validation."""
+def generate_signature(api_secret: str, message: str) -> str:
+    return hmac.new(
+        api_secret.encode('utf-8'),
+        message.encode('utf-8'),
+        hashlib.sha256
+    ).hexdigest()
 
-    def __init__(self, key_id: str) -> None:
-        self.key_id: str = key_id
+def normalize_order_params(params: Dict[str, Any]) -> str:
+    keys = sorted(params.keys())
+    return '&'.join([f"{k}={params[k]}" for k in keys])
 
-    def process_payload(self, data: Dict[str, Union[str, int]]) -> Optional[Dict[str, str]]:
-        """Transforms raw payload into signed cryptographic format."""
-        if not data or "nonce" not in data:
-            return None
+def get_timestamp_ms() -> int:
+    return int(time.time() * 1000)
 
-        processed: Dict[str, str] = {
-            "k": self.key_id,
-            "val": str(data["nonce"]),
-            "status": "verified"
-        }
-        return processed
+def sanitize_float(value: float, precision: int = 8) -> float:
+    return round(float(value), precision)
 
-    def batch_process(self, payloads: List[Dict[str, Union[str, int]]]) -> List[Dict[str, str]]:
-        """Applies transformation logic to a batch of payloads."""
-        results: List[Dict[str, str]] = []
-        for p in payloads:
-            result = self.process_payload(p)
-            if result:
-                results.append(result)
-        return results
+def validate_response_status(data: Dict[str, Any]) -> bool:
+    if not data or 'code' not in data:
+        return False
+    return int(data['code']) == 200
