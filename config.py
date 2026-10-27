@@ -1,26 +1,35 @@
-import json
 import os
+import json
 from typing import Any, Dict
 
 class ConfigLoader:
-    def __init__(self, default_path: str = "config.json"):
-        self.path = default_path
-        self.defaults = {
-            "rpc_url": "https://mainnet.infura.io/v3/",
-            "timeout": 30,
-            "retry_attempts": 3
-        }
+    def __init__(self, defaults: Dict[str, Any], env_prefix: str = "AGAR_"):
+        self.config = defaults.copy()
+        self.env_prefix = env_prefix
 
-    def load(self) -> Dict[str, Any]:
-        if not os.path.exists(self.path):
-            return self.defaults
+    def load_from_file(self, path: str) -> None:
+        if os.path.exists(path):
+            with open(path, "r") as f:
+                self.config.update(json.load(f))
+
+    def load_from_env(self) -> None:
+        for key in self.config.keys():
+            env_key = f"{self.env_prefix}{key.upper()}"
+            value = os.getenv(env_key)
+            if value is not None:
+                self.config[key] = self._parse_value(value)
+
+    def _parse_value(self, value: str) -> Any:
         try:
-            with open(self.path, "r") as f:
-                data = json.load(f)
-            return {**self.defaults, **data}
-        except (json.JSONDecodeError, IOError):
-            return self.defaults
+            return json.loads(value)
+        except (json.JSONDecodeError, TypeError):
+            return value
 
-def get_config(path: str = "config.json") -> Dict[str, Any]:
-    loader = ConfigLoader(path)
-    return loader.load()
+    def get(self, key: str, default: Any = None) -> Any:
+        return self.config.get(key, default)
+
+def get_config(defaults: Dict[str, Any], path: str = "config.json") -> ConfigLoader:
+    loader = ConfigLoader(defaults)
+    loader.load_from_file(path)
+    loader.load_from_env()
+    return loader
