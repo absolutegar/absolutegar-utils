@@ -1,32 +1,28 @@
 import logging
-from logging.handlers import RotatingFileHandler
-from pathlib import Path
+import sys
+from typing import Optional
 
-LOG_DIR = Path("logs")
-LOG_FILE = LOG_DIR / "absolutegar.log"
+class AbsoluteLogger:
+    """Standardized logger for absolutegar-utils."""
+    def __init__(self, name: str, level: int = logging.INFO) -> None:
+        self.logger: logging.Logger = logging.getLogger(name)
+        self.logger.setLevel(level)
+        self._setup_handler()
 
-def setup_logger(name: str = "absolutegar") -> logging.Logger:
-    LOG_DIR.mkdir(exist_ok=True)
-    
-    logger = logging.getLogger(name)
-    logger.setLevel(logging.INFO)
-    
-    formatter = logging.Formatter(
-        "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
-    )
-    
-    file_handler = RotatingFileHandler(
-        LOG_FILE, 
-        maxBytes=10 * 1024 * 1024, 
-        backupCount=5
-    )
-    file_handler.setFormatter(formatter)
-    
-    console_handler = logging.StreamHandler()
-    console_handler.setFormatter(formatter)
-    
-    if not logger.handlers:
-        logger.addHandler(file_handler)
-        logger.addHandler(console_handler)
-        
-    return logger
+    def _setup_handler(self) -> None:
+        """Configure stream handler with basic formatting."""
+        handler: logging.StreamHandler = logging.StreamHandler(sys.stdout)
+        formatter: logging.Formatter = logging.Formatter(
+            "%(asctime)s | %(name)s | %(levelname)s | %(message)s"
+        )
+        handler.setFormatter(formatter)
+        self.logger.addHandler(handler)
+
+    def get_logger(self) -> logging.Logger:
+        """Return the configured logger instance."""
+        return self.logger
+
+def get_module_logger(name: str, level: Optional[int] = None) -> logging.Logger:
+    """Factory function for consistent module logging."""
+    log_level: int = level or logging.INFO
+    return AbsoluteLogger(name, log_level).get_logger()
