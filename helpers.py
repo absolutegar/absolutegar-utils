@@ -1,38 +1,39 @@
-from typing import Tuple
+from decimal import Decimal, ROUND_DOWN
+import re
+
+SATO_FACTOR = Decimal("100000000")
+WEI_FACTOR = Decimal("1000000000000000000")
 
 
-def satoshi_to_btc(satoshis: int) -> float:
-    if satoshis < 0:
-        raise ValueError("Satoshis cannot be negative")
-    return satoshis / 100_000_000
+def satoshi_to_btc(sats: int) -> Decimal:
+    return Decimal(sats) / SATO_FACTOR
 
 
-def btc_to_satoshi(btc: float) -> int:
-    if btc < 0:
-        raise ValueError("BTC amount cannot be negative")
-    return int(round(btc * 100_000_000))
+def btc_to_satoshi(btc: Decimal | float | str) -> int:
+    return int((Decimal(str(btc)) * SATO_FACTOR).quantize(Decimal("1"), rounding=ROUND_DOWN))
 
 
-def calculate_pnl(
-    entry_price: float, exit_price: float, amount: float, is_long: bool = True
-) -> Tuple[float, float]:
-    if entry_price <= 0 or exit_price < 0 or amount <= 0:
-        raise ValueError("Prices and amount must be positive numbers")
-
-    direction = 1 if is_long else -1
-    pnl = (exit_price - entry_price) * amount * direction
-    roi = ((exit_price - entry_price) / entry_price) * 100 * direction
-    return round(pnl, 8), round(roi, 2)
+def wei_to_eth(wei: int) -> Decimal:
+    return Decimal(wei) / WEI_FACTOR
 
 
-def truncate_address(address: str, leading: int = 6, trailing: int = 4) -> str:
-    if not address or len(address) <= (leading + trailing):
+def eth_to_wei(eth: Decimal | float | str) -> int:
+    return int((Decimal(str(eth)) * WEI_FACTOR).quantize(Decimal("1"), rounding=ROUND_DOWN))
+
+
+def truncate_address(address: str, prefix_len: int = 6, suffix_len: int = 4) -> str:
+    if not address or len(address) <= prefix_len + suffix_len:
         return address
-    return f"{address[:leading]}...{address[-trailing:]}"
+    return f"{address[:prefix_len]}...{address[-suffix_len:]}"
 
 
-def normalize_symbol(symbol: str) -> str:
-    cleaned = symbol.strip().upper().replace("/", "").replace("-", "")
-    if not cleaned:
-        raise ValueError("Invalid trading symbol")
-    return cleaned
+def calculate_slippage(price: Decimal | float, percentage: float, is_buy: bool = True) -> Decimal:
+    p = Decimal(str(price))
+    adj = Decimal(str(percentage / 100))
+    factor = (Decimal("1") + adj) if is_buy else (Decimal("1") - adj)
+    return p * factor
+
+
+def is_valid_hex_tx(tx_hash: str) -> bool:
+    clean = tx_hash.removeprefix("0x")
+    return len(clean) == 64 and bool(re.match(r"^[0-9a-fA-F]+$", clean))
