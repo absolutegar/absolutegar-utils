@@ -1,26 +1,31 @@
-import logging
+import hashlib
+import hmac
+from typing import Optional
 
-class ValidationError(Exception):
-    pass
+class CryptoProcessor:
+    def __init__(self, secret: str):
+        self._secret = secret.encode()
 
-def validate_input(data):
-    if not isinstance(data, dict):
-        raise ValidationError("Invalid input type: expected dict")
-    if "address" not in data or len(data["address"]) != 42:
-        raise ValidationError("Invalid wallet address format")
-    if not isinstance(data.get("amount"), (int, float)) or data["amount"] <= 0:
-        raise ValidationError("Invalid transaction amount")
-    return True
+    def generate_signature(self, payload: str) -> str:
+        return hmac.new(
+            self._secret,
+            payload.encode(),
+            hashlib.sha256
+        ).hexdigest()
 
-def process_transactions(queue):
-    logger = logging.getLogger(__name__)
-    while True:
-        try:
-            item = queue.get(timeout=1)
-            if validate_input(item):
-                logger.info(f"Processing: {item['address']}")
-        except ValidationError as e:
-            logger.error(f"Validation failure: {e}")
-        except Exception as e:
-            logger.debug(f"Queue processing interruption: {e}")
-            break
+    def verify_signature(self, payload: str, signature: str) -> bool:
+        expected = self.generate_signature(payload)
+        return hmac.compare_digest(expected, signature)
+
+class DataSanitizer:
+    @staticmethod
+    def format_address(address: str) -> str:
+        if not address:
+            raise ValueError("invalid address")
+        return address.lower().strip()
+
+def process_transaction(payload: str, secret: str, signature: str) -> Optional[dict]:
+    processor = CryptoProcessor(secret)
+    if not processor.verify_signature(payload, signature):
+        return None
+    return {"status": "verified", "data": payload}
