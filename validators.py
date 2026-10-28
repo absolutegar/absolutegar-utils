@@ -1,24 +1,33 @@
-import re
-from typing import Union
+from typing import Any, Dict, Optional
 
+class ValidationError(Exception):
+    pass
 
-def validate_address(address: str) -> bool:
-    """Validate cryptocurrency wallet address format."""
-    pattern = re.compile(r"^0x[a-fA-F0-9]{40}$")
-    return bool(pattern.match(address))
+def validate_tx_payload(data: Any) -> Dict[str, Any]:
+    if not isinstance(data, dict):
+        raise ValidationError('payload must be a dictionary')
+    
+    required_keys = {'tx_id', 'amount', 'currency', 'sender'}
+    if not required_keys.issubset(data.keys()):
+        missing = required_keys - data.keys()
+        raise ValidationError(f'missing required fields: {missing}')
 
+    if not isinstance(data['amount'], (int, float)) or data['amount'] <= 0:
+        raise ValidationError('invalid amount: must be positive numeric')
+        
+    return data
 
-def validate_amount(amount: Union[int, float]) -> bool:
-    """Validate non-negative transaction amount."""
-    return isinstance(amount, (int, float)) and amount >= 0
+def validate_address(address: str, chain: str) -> bool:
+    if not isinstance(address, str) or len(address) < 26:
+        return False
+        
+    if chain == 'btc' and not address.startswith(('1', '3', 'bc1')):
+        return False
+        
+    if chain == 'eth' and not (address.startswith('0x') and len(address) == 42):
+        return False
+        
+    return True
 
-
-def validate_gas_limit(gas: int) -> bool:
-    """Validate integer gas limit bounds."""
-    return isinstance(gas, int) and 21000 <= gas <= 10000000
-
-
-def validate_hex(data: str) -> bool:
-    """Validate raw hex string encoding."""
-    pattern = re.compile(r"^[a-fA-F0-9]+$")
-    return bool(pattern.match(data))
+def sanitize_input(data: Dict[str, Any]) -> Dict[str, Any]:
+    return {k: str(v).strip() for k, v in data.items() if v is not None}
