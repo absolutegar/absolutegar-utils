@@ -1,32 +1,47 @@
-import hashlib
-import multiprocessing as mp
-from typing import List, Iterable
+import re
+from typing import Any, Dict, List
 
-class DataProcessor:
-    def __init__(self, chunk_size: int = 10000):
-        self.chunk_size = chunk_size
+ADDRESS_REGEX = re.compile(r"^0x[a-fA-F0-9]{40}$")
+TX_HASH_REGEX = re.compile(r"^0x[a-fA-F0-9]{64}$")
 
-    @staticmethod
-    def _hash_batch(data: List[bytes]) -> List[bytes]:
-        return [hashlib.sha256(item).digest() for item in data]
 
-    def process_parallel(self, data: Iterable[bytes]) -> List[bytes]:
-        chunks = []
-        current_chunk = []
-        for item in data:
-            current_chunk.append(item)
-            if len(current_chunk) >= self.chunk_size:
-                chunks.append(current_chunk)
-                current_chunk = []
-        if current_chunk:
-            chunks.append(current_chunk)
+class InvalidTransactionError(Exception):
+    pass
 
-        with mp.Pool() as pool:
-            results = pool.map(self._hash_batch, chunks)
-        
-        return [item for sublist in results for item in sublist]
 
-    def process_optimized(self, data: List[bytes]) -> List[bytes]:
-        if len(data) > 50000:
-            return self.process_parallel(data)
-        return self._hash_batch(data)
+def validate_transaction(tx: Dict[str, Any]) -> None:
+    if not isinstance(tx, dict):
+        raise InvalidTransactionError("Transaction payload must be a dictionary")
+
+    required_fields = {"sender", "recipient", "amount", "hash"}
+    if not required_fields.issubset(tx.keys()):
+        missing = required_fields - tx.keys()
+        raise InvalidTransactionError(f"Missing required fields: {missing}")
+
+    if not isinstance(tx["sender"], str) or not ADDRESS_REGEX.match(tx["sender"]):
+        raise InvalidTransactionError("Invalid sender address format")
+
+    if not isinstance(tx["recipient"], str) or not ADDRESS_REGEX.match(tx["recipient"]):
+        raise InvalidTransactionError("Invalid recipient address format")
+
+    if not isinstance(tx["hash"], str) or not TX_HASH_REGEX.match(tx["hash"]):
+        raise InvalidTransactionError("Invalid transaction hash format")
+
+    if not isinstance(tx["amount"], (int, float)) or tx["amount"] <= 0:
+        raise InvalidTransactionError("Amount must be a positive number")
+
+
+def process_transaction_queue(transactions: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    processed = []
+    for tx in transactions:
+        try:
+            validate_transaction(tx)
+            tx_record = dict(tx)
+            tx_record["status"] = "validated"
+            processed.append(tx_record)
+        except InvalidTransactionError as err:
+            tx_record = dict(tx) if isinstance(tx, dict) else {"raw": tx}
+            tx_record["status"] = "rejected"
+            tx_record["error"] = str(err)
+            processed.append(tx_record)
+    return processed
