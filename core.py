@@ -1,31 +1,32 @@
 import hashlib
 import hmac
-from typing import Optional
+import time
+from typing import Any, Dict
 
-class CryptoProcessor:
-    def __init__(self, secret: str):
-        self._secret = secret.encode()
+def generate_signature(api_secret: str, payload: str) -> str:
+    return hmac.new(
+        api_secret.encode('utf-8'),
+        payload.encode('utf-8'),
+        hashlib.sha256
+    ).hexdigest()
 
-    def generate_signature(self, payload: str) -> str:
-        return hmac.new(
-            self._secret,
-            payload.encode(),
-            hashlib.sha256
-        ).hexdigest()
+def format_payload(params: Dict[str, Any]) -> str:
+    sorted_keys = sorted(params.keys())
+    return '&'.join([f'{k}={params[k]}' for k in sorted_keys])
 
-    def verify_signature(self, payload: str, signature: str) -> bool:
-        expected = self.generate_signature(payload)
-        return hmac.compare_digest(expected, signature)
+def get_timestamp() -> int:
+    return int(time.time() * 1000)
 
-class DataSanitizer:
-    @staticmethod
-    def format_address(address: str) -> str:
-        if not address:
-            raise ValueError("invalid address")
-        return address.lower().strip()
+def validate_order_params(params: Dict[str, Any]) -> bool:
+    required = ['symbol', 'side', 'type', 'quantity']
+    return all(key in params for key in required)
 
-def process_transaction(payload: str, secret: str, signature: str) -> Optional[dict]:
-    processor = CryptoProcessor(secret)
-    if not processor.verify_signature(payload, signature):
-        return None
-    return {"status": "verified", "data": payload}
+def sanitize_currency(pair: str) -> str:
+    return pair.upper().replace('/', '_')
+
+def build_request_headers(api_key: str, signature: str) -> Dict[str, str]:
+    return {
+        'X-API-KEY': api_key,
+        'X-SIGNATURE': signature,
+        'Content-Type': 'application/json'
+    }
