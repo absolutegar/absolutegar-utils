@@ -1,33 +1,47 @@
-from typing import Any, Dict, Optional
+import re
+from typing import Dict, Optional
 
-class ValidationError(Exception):
-    pass
 
-def validate_tx_payload(data: Any) -> Dict[str, Any]:
-    if not isinstance(data, dict):
-        raise ValidationError('payload must be a dictionary')
-    
-    required_keys = {'tx_id', 'amount', 'currency', 'sender'}
-    if not required_keys.issubset(data.keys()):
-        missing = required_keys - data.keys()
-        raise ValidationError(f'missing required fields: {missing}')
+ADDRESS_PATTERNS: Dict[str, str] = {
+    "ethereum": r"^0x[a-fA-F0-9]{40}$",
+    "bitcoin_legacy": r"^[13][a-km-zA-HJ-NP-Z1-9]{25,34}$",
+    "bitcoin_bech32": r"^bc1[a-zA-09-z1-9]{8,87}$",
+    "solana": r"^[1-9A-HJ-NP-Za-km-z]{32,44}$",
+}
 
-    if not isinstance(data['amount'], (int, float)) or data['amount'] <= 0:
-        raise ValidationError('invalid amount: must be positive numeric')
-        
-    return data
+TX_HASH_PATTERNS: Dict[str, str] = {
+    "ethereum": r"^0x[a-fA-F0-9]{64}$",
+    "bitcoin": r"^[a-fA-F0-9]{64}$",
+    "solana": r"^[1-9A-HJ-NP-Za-km-z]{87,88}$",
+}
+
 
 def validate_address(address: str, chain: str) -> bool:
-    if not isinstance(address, str) or len(address) < 26:
+    if not isinstance(address, str) or not address:
         return False
-        
-    if chain == 'btc' and not address.startswith(('1', '3', 'bc1')):
-        return False
-        
-    if chain == 'eth' and not (address.startswith('0x') and len(address) == 42):
-        return False
-        
-    return True
+    chain_key = chain.lower()
+    if chain_key == "bitcoin":
+        return bool(
+            re.match(ADDRESS_PATTERNS["bitcoin_legacy"], address)
+            or re.match(ADDRESS_PATTERNS["bitcoin_bech32"], address.lower())
+        )
+    pattern = ADDRESS_PATTERNS.get(chain_key)
+    if not pattern:
+        raise ValueError(f"Unsupported network chain: {chain}")
+    return bool(re.match(pattern, address))
 
-def sanitize_input(data: Dict[str, Any]) -> Dict[str, Any]:
-    return {k: str(v).strip() for k, v in data.items() if v is not None}
+
+def validate_tx_hash(tx_hash: str, chain: str) -> bool:
+    if not isinstance(tx_hash, str) or not tx_hash:
+        return False
+    pattern = TX_HASH_PATTERNS.get(chain.lower())
+    if not pattern:
+        raise ValueError(f"Unsupported network chain: {chain}")
+    return bool(re.match(pattern, tx_hash))
+
+
+def sanitize_address(address: str, chain: str) -> Optional[str]:
+    cleaned = address.strip()
+    if validate_address(cleaned, chain):
+        return cleaned.lower() if chain.lower() in ("ethereum", "bitcoin") else cleaned
+    return None
