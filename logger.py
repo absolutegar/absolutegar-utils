@@ -1,28 +1,46 @@
 import logging
-import sys
-from typing import Optional
+from logging.handlers import RotatingFileHandler
+from pathlib import Path
 
-class AbsoluteLogger:
-    """Standardized logger for absolutegar-utils."""
-    def __init__(self, name: str, level: int = logging.INFO) -> None:
-        self.logger: logging.Logger = logging.getLogger(name)
-        self.logger.setLevel(level)
-        self._setup_handler()
 
-    def _setup_handler(self) -> None:
-        """Configure stream handler with basic formatting."""
-        handler: logging.StreamHandler = logging.StreamHandler(sys.stdout)
-        formatter: logging.Formatter = logging.Formatter(
-            "%(asctime)s | %(name)s | %(levelname)s | %(message)s"
-        )
-        handler.setFormatter(formatter)
-        self.logger.addHandler(handler)
+def setup_logger(
+    name: str = "absolutegar",
+    log_dir: str = "logs",
+    level: int = logging.INFO,
+    max_bytes: int = 10_000_000,
+    backup_count: int = 5,
+) -> logging.Logger:
+    logger = logging.getLogger(name)
+    if logger.hasHandlers():
+        return logger
 
-    def get_logger(self) -> logging.Logger:
-        """Return the configured logger instance."""
-        return self.logger
+    logger.setLevel(level)
 
-def get_module_logger(name: str, level: Optional[int] = None) -> logging.Logger:
-    """Factory function for consistent module logging."""
-    log_level: int = level or logging.INFO
-    return AbsoluteLogger(name, log_level).get_logger()
+    log_path = Path(log_dir)
+    log_path.mkdir(parents=True, exist_ok=True)
+    file_path = log_path / f"{name}.log"
+
+    formatter = logging.Formatter(
+        fmt="%(asctime)s | %(levelname)-8s | %(name)s | %(message)s",
+        datefmt="%Y-%m-%d %H:%M:%S",
+    )
+
+    file_handler = RotatingFileHandler(
+        file_path,
+        maxBytes=max_bytes,
+        backupCount=backup_count,
+        encoding="utf-8",
+    )
+    file_handler.setFormatter(formatter)
+    logger.addHandler(file_handler)
+
+    console_handler = logging.StreamHandler()
+    console_handler.setFormatter(formatter)
+    logger.addHandler(console_handler)
+
+    return logger
+
+
+def get_trade_logger(symbol: str) -> logging.Logger:
+    clean_symbol = symbol.lower().replace("/", "_").replace("-", "_")
+    return setup_logger(name=f"trade_{clean_symbol}")
