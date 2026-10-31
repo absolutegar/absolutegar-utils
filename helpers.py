@@ -1,33 +1,21 @@
-import functools
-import time
-from typing import Callable, Any
+from typing import List, Dict, Union
+from decimal import Decimal, ROUND_HALF_UP
 
-def memoize_crypto_data(ttl_seconds: int = 60) -> Callable:
-    def decorator(func: Callable) -> Callable:
-        cache = {}
-        @functools.wraps(func)
-        def wrapper(*args: Any, **kwargs: Any) -> Any:
-            key = (args, frozenset(kwargs.items()))
-            now = time.monotonic()
-            if key in cache:
-                result, timestamp = cache[key]
-                if now - timestamp < ttl_seconds:
-                    return result
-            result = func(*args, **kwargs)
-            cache[key] = (result, now)
-            return result
-        return wrapper
-    return decorator
+def normalize_amount(amount: Union[str, float, int], precision: int = 8) -> Decimal:
+    return Decimal(str(amount)).quantize(Decimal(10) ** -precision, rounding=ROUND_HALF_UP)
 
-def batch_process(items: list, chunk_size: int = 100):
-    for i in range(0, len(items), chunk_size):
-        yield items[i:i + chunk_size]
+def format_orderbook(data: List[Dict[str, Union[str, float]]], side: str) -> List[Dict[str, Decimal]]:
+    return [
+        {
+            'price': normalize_amount(entry['p']),
+            'size': normalize_amount(entry['s'])
+        }
+        for entry in data
+        if entry.get('side') == side
+    ]
 
-def compute_optimized_hash(data: bytes) -> int:
-    return int.from_bytes(data[:32], byteorder='big')
+def calculate_position_value(size: Decimal, price: Decimal) -> Decimal:
+    return (size * price).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
 
-class PerformanceOptimizer:
-    __slots__ = ['cache_enabled', 'buffer_size']
-    def __init__(self, cache_enabled: bool = True, buffer_size: int = 1024):
-        self.cache_enabled = cache_enabled
-        self.buffer_size = buffer_size
+def validate_ticker(symbol: str) -> bool:
+    return bool(symbol and isinstance(symbol, str) and '/' in symbol)
