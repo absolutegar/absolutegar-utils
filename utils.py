@@ -1,40 +1,30 @@
-import asyncio
-import functools
-import logging
-import random
-from typing import Any, Callable, Tuple, Type
+import hashlib
+import hmac
+from typing import Any, Dict
 
-logger = logging.getLogger(__name__)
+def generate_signature(api_secret: str, message: str) -> str:
+    return hmac.new(
+        api_secret.encode('utf-8'),
+        message.encode('utf-8'),
+        hashlib.sha256
+    ).hexdigest()
 
+def normalize_payload(data: Dict[str, Any]) -> Dict[str, Any]:
+    return {k: str(v) for k, v in sorted(data.items())}
 
-def retry_async(
-    retries: int = 3,
-    delay: float = 1.0,
-    backoff: float = 2.0,
-    exceptions: Tuple[Type[Exception], ...] = (Exception,),
-) -> Callable:
-    def decorator(func: Callable) -> Callable:
-        @functools.wraps(func)
-        async def wrapper(*args: Any, **kwargs: Any) -> Any:
-            current_delay = delay
-            for attempt in range(1, retries + 1):
-                try:
-                    return await func(*args, **kwargs)
-                except exceptions as err:
-                    if attempt == retries:
-                        logger.error(
-                            f"Operation failed after {retries} attempts: {err}"
-                        )
-                        raise
-                    jitter = random.uniform(0, 0.1 * current_delay)
-                    sleep_time = current_delay + jitter
-                    logger.warning(
-                        f"Attempt {attempt}/{retries} failed ({err}). "
-                        f"Retrying in {sleep_time:.2f}s..."
-                    )
-                    await asyncio.sleep(sleep_time)
-                    current_delay *= backoff
+def format_address(address: str) -> str:
+    return address.lower().strip()
 
-        return wrapper
+def validate_checksum(address: str) -> bool:
+    if not address.startswith('0x') or len(address) != 42:
+        return False
+    return all(c in '0123456789abcdefABCDEF' for c in address[2:])
 
-    return decorator
+class CryptoUtils:
+    @staticmethod
+    def to_wei(amount: float, decimals: int = 18) -> int:
+        return int(amount * (10 ** decimals))
+
+    @staticmethod
+    def from_wei(amount: int, decimals: int = 18) -> float:
+        return amount / (10 ** decimals)
