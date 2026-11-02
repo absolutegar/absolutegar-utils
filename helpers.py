@@ -1,21 +1,26 @@
-from typing import List, Dict, Union
-from decimal import Decimal, ROUND_HALF_UP
+import time
+import functools
+import logging
+from typing import Callable, Any
 
-def normalize_amount(amount: Union[str, float, int], precision: int = 8) -> Decimal:
-    return Decimal(str(amount)).quantize(Decimal(10) ** -precision, rounding=ROUND_HALF_UP)
+logger = logging.getLogger(__name__)
 
-def format_orderbook(data: List[Dict[str, Union[str, float]]], side: str) -> List[Dict[str, Decimal]]:
-    return [
-        {
-            'price': normalize_amount(entry['p']),
-            'size': normalize_amount(entry['s'])
-        }
-        for entry in data
-        if entry.get('side') == side
-    ]
-
-def calculate_position_value(size: Decimal, price: Decimal) -> Decimal:
-    return (size * price).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
-
-def validate_ticker(symbol: str) -> bool:
-    return bool(symbol and isinstance(symbol, str) and '/' in symbol)
+def retry(retries: int = 3, delay: float = 1.0, backoff: float = 2.0):
+    def decorator(func: Callable):
+        @functools.wraps(func)
+        def wrapper(*args: Any, **kwargs: Any) -> Any:
+            attempt = 0
+            current_delay = delay
+            while attempt < retries:
+                try:
+                    return func(*args, **kwargs)
+                except Exception as e:
+                    attempt += 1
+                    if attempt == retries:
+                        logger.error(f"failed after {retries} attempts: {e}")
+                        raise
+                    logger.warning(f"retry {attempt}/{retries} after {current_delay}s")
+                    time.sleep(current_delay)
+                    current_delay *= backoff
+        return wrapper
+    return decorator
