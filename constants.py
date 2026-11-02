@@ -1,30 +1,25 @@
-from typing import Final, Dict, List
+from typing import Final
+from enum import IntEnum
 
-# Network identifiers for crypto transactions
-MAINNET_CHAIN_ID: Final[int] = 1
-TESTNET_CHAIN_ID: Final[int] = 11155111
-
-# API request rate limits
+CACHE_TTL: Final[int] = 3600
 MAX_RETRIES: Final[int] = 3
-REQUEST_TIMEOUT_SECONDS: Final[float] = 30.0
+PRECISION: Final[int] = 18
 
-# Supported crypto protocols
-SUPPORTED_PROTOCOLS: Final[List[str]] = ['erc20', 'bep20', 'solana']
+class ChainID(IntEnum):
+    ETHEREUM = 1
+    OPTIMISM = 10
+    ARBITRUM = 42161
 
-# Default gas multiplier
-GAS_BUFFER_PERCENTAGE: Final[float] = 1.2
+HTTP_TIMEOUT: Final[float] = 10.0
+CHUNK_SIZE: Final[int] = 1024
 
-# Mapping of protocol to fee decimal precision
-FEE_PRECISION_MAP: Final[Dict[str, int]] = {
-    'erc20': 18,
-    'bep20': 18,
-    'solana': 9
-}
+SUPPORTED_ASSETS: Final[tuple[str, ...]] = (
+    'ETH',
+    'USDC',
+    'USDT',
+    'WBTC',
+    'DAI'
+)
 
-def get_chain_name(chain_id: int) -> str:
-    """Return human readable chain name from ID."""
-    mapping: Dict[int, str] = {
-        MAINNET_CHAIN_ID: "mainnet",
-        TESTNET_CHAIN_ID: "sepolia"
-    }
-    return mapping.get(chain_id, "unknown")
+GAS_BUFFER_MULTIPLIER: Final[float] = 1.2
+NONCE_CACHE_KEY: Final[str] = 'addr_nonce_map'
