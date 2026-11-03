@@ -2,30 +2,31 @@ class AbsolutegarError(Exception):
     """Base exception for absolutegar-utils."""
 
 
-class ChainConnectionError(AbsolutegarError):
-    """Raised when blockchain node is unreachable."""
+class ValidationError(AbsolutegarError):
+    """Raised when input validation fails."""
 
 
-class WalletBalanceError(AbsolutegarError):
-    """Raised during insufficient fund scenarios."""
+class CryptoOperationError(AbsolutegarError):
+    """Raised when cryptographic operations fail."""
 
 
-class TransactionValidationError(AbsolutegarError):
-    """Raised for malformed crypto transactions."""
+class NetworkTimeoutError(AbsolutegarError):
+    """Raised when a network request times out."""
 
 
-def handle_crypto_error(err: Exception) -> None:
-    if isinstance(err, (ChainConnectionError, WalletBalanceError, TransactionValidationError)):
-        print(f"[CRYPTO ERROR]: {err.__class__.__name__} - {err}")
+class ConfigurationError(AbsolutegarError):
+    """Raised when configuration is missing or invalid."""
+
+
+class WalletAccessError(AbsolutegarError):
+    """Raised when wallet interaction fails."""
+
+
+def handle_exception(exc: Exception) -> None:
+    """Minimal exception classification handler."""
+    if isinstance(exc, (ValidationError, ConfigurationError)):
+        print(f"Client error: {exc}")
+    elif isinstance(exc, (CryptoOperationError, WalletAccessError)):
+        print(f"Internal crypto error: {exc}")
     else:
-        print(f"[FATAL ERROR]: Unexpected system exception: {err}")
-
-
-def validate_tx_amount(amount: float) -> None:
-    if amount <= 0:
-        raise TransactionValidationError("Transaction amount must be positive")
-
-
-def validate_node_status(status: bool) -> None:
-    if not status:
-        raise ChainConnectionError("RPC node node rejected connection request")
+        print(f"Unexpected system error: {exc}")
