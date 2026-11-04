@@ -1,52 +1,47 @@
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+
 # absolutegar-utils
 
-A robust Python toolkit designed for automated cryptocurrency market analysis and portfolio monitoring. It provides efficient abstractions for interacting with exchange APIs and processing high-frequency price data.
+`absolutegar-utils` is a high-performance Python toolkit engineered for low-latency cryptocurrency algorithmic trading, Web3 payload construction, and exchange data normalization. Built for quantitative traders and MEV searchers, it streamlines cross-venue market data ingestion and EVM transaction assembly.
 
 ## Features
 
-*   **Unified API Adapters:** Normalized wrappers for Binance and CCXT-based exchanges to simplify trade execution and historical data retrieval.
-*   **Volatility Analysis:** Built-in modules to calculate real-time Bollinger Bands, RSI, and custom momentum indicators using `pandas` and `numpy`.
-*   **Async Portfolio Tracking:** Asynchronous asset monitoring capable of streaming balance updates across multiple wallets without blocking the main event loop.
-*   **Alerting Engine:** Integrated hooks for Telegram and Discord notifications to trigger instant alerts on customizable price thresholds.
+- **Cross-Venue Book Normalizer:** Ingests raw WebSocket order book snapshots from CEXs (Binance, Bybit) and DEXs (Uniswap V3, Curve) into structured NumPy arrays.
+- **Optimized ABI Encoder:** Provides fast EVM payload construction and method selector computation with lower overhead than standard Web3 bindings.
+- **Dynamic Fee Estimator:** Calculates optimal EIP-1559 base and priority fees using real-time block telemetry and sliding-window percentiles.
+- **EIP-712 Signature Tools:** Simplifies signing, hashing, and validating typed structured data for decentralized exchange orders.
 
 ## Installation
 
-Ensure you have Python 3.9+ installed. Install the package via pip:
+Install the latest release via `pip`:
 
 ```bash
 pip install absolutegar-utils
 ```
 
-To enable advanced charting dependencies, use the optional install:
+Or build directly from the source repository:
 
 ```bash
-pip install absolutegar-utils[charts]
+git clone https://github.com/Developer/absolutegar-utils.git
+cd absolutegar-utils
+pip install .
 ```
 
 ## Basic Usage
 
-Initialize the client to fetch market data and monitor a trading pair asynchronously:
+The following example demonstrates how to estimate optimal EIP-1559 gas fees and parse a normalized order book snapshot:
 
 ```python
-import asyncio
-from absolutegar import MarketClient
+from absolutegar_utils import FeeEstimator, OrderBookParser
 
-async def main():
-    client = MarketClient(exchange='binance')
-    
-    # Fetch real-time ticker
-    ticker = await client.get_ticker('BTC/USDT')
-    print(f"Current Price: {ticker['last']}")
+# Calculate priority and max fees for EVM transactions
+estimator = FeeEstimator(rpc_url="https://eth-mainnet.g.alchemy.com/v2/demo")
+suggested_fees = estimator.get_optimal_fees(target_percentile=75)
 
-    # Setup a price alert
-    await client.monitor_price('BTC/USDT', target=65000, callback=lambda: print("Target reached!"))
+print(f"Base Fee: {suggested_fees.base_fee_gwei:.2f} Gwei")
+print(f"Priority Fee: {suggested_fees.priority_fee_gwei:.2f} Gwei")
 
-if __name__ == "__main__":
-    asyncio.run(main())
-```
-
-## License
-
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+# Normalize raw exchange payload
+raw_data = {
+    "bids": [["65000.50", "1.2"], ["64999.00", "0.5"]],
+    "asks": [["65001.00", "0.8"], ["65002.
