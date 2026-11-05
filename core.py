@@ -1,31 +1,31 @@
-import hashlib
-import hmac
-import time
-import json
-from typing import Dict, Any
+import functools
+from typing import Callable, Any, Dict
 
-def generate_signature(api_secret: str, message: str) -> str:
-    return hmac.new(
-        api_secret.encode('utf-8'),
-        message.encode('utf-8'),
-        hashlib.sha256
-    ).hexdigest()
+CACHE: Dict[tuple, Any] = {}
 
-def format_payload(params: Dict[str, Any]) -> str:
-    return json.dumps(dict(sorted(params.items())))
+def memoize_crypto_calc(func: Callable) -> Callable:
+    @functools.wraps(func)
+    def wrapper(*args: Any, **kwargs: Any) -> Any:
+        key = (func.__name__, args, tuple(sorted(kwargs.items())))
+        if key not in CACHE:
+            CACHE[key] = func(*args, **kwargs)
+        return CACHE[key]
+    return wrapper
 
-def get_timestamp() -> int:
-    return int(time.time() * 1000)
+class CryptoProcessor:
+    __slots__ = ('nonce', 'data')
 
-def parse_order_response(response: Dict[str, Any]) -> Dict[str, Any]:
-    return {
-        'id': response.get('order_id'),
-        'status': response.get('status'),
-        'filled': float(response.get('filled_qty', 0)),
-        'price': float(response.get('avg_price', 0))
-    }
+    def __init__(self, nonce: int, data: bytes):
+        self.nonce = nonce
+        self.data = data
 
-def validate_ticker(symbol: str) -> bool:
-    if not isinstance(symbol, str) or len(symbol) < 3:
-        return False
-    return symbol.isalnum()
+    @staticmethod
+    @memoize_crypto_calc
+    def compute_hash(val: int) -> int:
+        return (val * 0x5bd1e995) & 0xffffffff
+
+    def process(self) -> int:
+        return self.compute_hash(self.nonce) ^ hash(self.data)
+
+def batch_process(items: list[tuple[int, bytes]]) -> list[int]:
+    return [CryptoProcessor(n, d).process() for n, d in items]
