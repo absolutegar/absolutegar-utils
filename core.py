@@ -1,31 +1,36 @@
-import functools
-from typing import Callable, Any, Dict
+import hashlib
+from functools import lru_cache
+from typing import List, Tuple
 
-CACHE: Dict[tuple, Any] = {}
 
-def memoize_crypto_calc(func: Callable) -> Callable:
-    @functools.wraps(func)
-    def wrapper(*args: Any, **kwargs: Any) -> Any:
-        key = (func.__name__, args, tuple(sorted(kwargs.items())))
-        if key not in CACHE:
-            CACHE[key] = func(*args, **kwargs)
-        return CACHE[key]
-    return wrapper
+@lru_cache(maxsize=2048)
+def fast_double_sha256(payload: bytes) -> bytes:
+    return hashlib.sha256(hashlib.sha256(payload).digest()).digest()
 
-class CryptoProcessor:
-    __slots__ = ('nonce', 'data')
 
-    def __init__(self, nonce: int, data: bytes):
-        self.nonce = nonce
-        self.data = data
+class CoreCryptoProcessor:
+    """Optimized cryptographic payload and merkle tree processor."""
+
+    def __init__(self, batch_size: int = 1000):
+        self.batch_size = batch_size
 
     @staticmethod
-    @memoize_crypto_calc
-    def compute_hash(val: int) -> int:
-        return (val * 0x5bd1e995) & 0xffffffff
+    def hash_payload(data: bytes) -> bytes:
+        return fast_double_sha256(data)
 
-    def process(self) -> int:
-        return self.compute_hash(self.nonce) ^ hash(self.data)
+    def build_merkle_root(self, leaf_hashes: List[bytes]) -> bytes:
+        if not leaf_hashes:
+            return b""
 
-def batch_process(items: list[tuple[int, bytes]]) -> list[int]:
-    return [CryptoProcessor(n, d).process() for n, d in items]
+        nodes = list(leaf_hashes)
+        while len(nodes) > 1:
+            if len(nodes) % 2 == 1:
+                nodes.append(nodes[-1])
+            nodes = [
+                fast_double_sha256(nodes[i] + nodes[i + 1])
+                for i in range(0, len(nodes), 2)
+            ]
+        return nodes[0]
+
+    def process_batch(self, payloads: List[bytes]) -> List[Tuple[bytes, bytes]]:
+        return [(fast_double_sha256(p), p) for p in payloads]
