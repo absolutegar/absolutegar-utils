@@ -1,23 +1,34 @@
 import logging
 import sys
-from pathlib import Path
+from typing import Optional
 
 def get_logger(name: str, level: int = logging.INFO) -> logging.Logger:
+    """Initialize and return a configured logger instance."""
     logger = logging.getLogger(name)
     logger.setLevel(level)
-    formatter = logging.Formatter(
-        '%(asctime)s - %(name)s - %(levelname)s - %(message)s'
-    )
-    
-    console_handler = logging.StreamHandler(sys.stdout)
-    console_handler.setFormatter(formatter)
-    logger.addHandler(console_handler)
-    
-    log_dir = Path('logs')
-    log_dir.mkdir(exist_ok=True)
-    
-    file_handler = logging.FileHandler(log_dir / f'{name}.log')
-    file_handler.setFormatter(formatter)
-    logger.addHandler(file_handler)
-    
+
+    if not logger.handlers:
+        handler = logging.StreamHandler(sys.stdout)
+        formatter = logging.Formatter(
+            "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+        )
+        handler.setFormatter(formatter)
+        logger.addHandler(handler)
+
     return logger
+
+class CryptoLogger:
+    """Wrapper class for standardized crypto-related logging."""
+    def __init__(self, name: str) -> None:
+        self.logger: logging.Logger = get_logger(name)
+
+    def info(self, msg: str, *args: object) -> None:
+        """Log info level message."""
+        self.logger.info(msg, *args)
+
+    def error(self, msg: str, exc: Optional[Exception] = None) -> None:
+        """Log error message with optional exception info."""
+        if exc:
+            self.logger.error(f"{msg}: {str(exc)}", exc_info=True)
+        else:
+            self.logger.error(msg)
