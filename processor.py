@@ -1,47 +1,31 @@
-import re
-from typing import Any, Dict, List
+import hashlib
+import hmac
+import base64
+from typing import Dict, Any
 
-ADDRESS_REGEX = re.compile(r"^0x[a-fA-F0-9]{40}$")
-TX_HASH_REGEX = re.compile(r"^0x[a-fA-F0-9]{64}$")
+def generate_signature(api_secret: str, message: str) -> str:
+    return hmac.new(
+        api_secret.encode('utf-8'),
+        message.encode('utf-8'),
+        hashlib.sha256
+    ).hexdigest()
 
+def format_order_payload(symbol: str, side: str, amount: float, price: float) -> Dict[str, Any]:
+    return {
+        "symbol": symbol.upper(),
+        "side": side.lower(),
+        "quantity": str(amount),
+        "price": str(price),
+        "timestamp": None
+    }
 
-class InvalidTransactionError(Exception):
-    pass
+def encode_auth_header(api_key: str, secret: str) -> str:
+    credentials = f"{api_key}:{secret}"
+    return base64.b64encode(credentials.encode('utf-8')).decode('utf-8')
 
+def validate_price_precision(price: float, tick_size: float) -> bool:
+    return (price / tick_size).is_integer()
 
-def validate_transaction(tx: Dict[str, Any]) -> None:
-    if not isinstance(tx, dict):
-        raise InvalidTransactionError("Transaction payload must be a dictionary")
-
-    required_fields = {"sender", "recipient", "amount", "hash"}
-    if not required_fields.issubset(tx.keys()):
-        missing = required_fields - tx.keys()
-        raise InvalidTransactionError(f"Missing required fields: {missing}")
-
-    if not isinstance(tx["sender"], str) or not ADDRESS_REGEX.match(tx["sender"]):
-        raise InvalidTransactionError("Invalid sender address format")
-
-    if not isinstance(tx["recipient"], str) or not ADDRESS_REGEX.match(tx["recipient"]):
-        raise InvalidTransactionError("Invalid recipient address format")
-
-    if not isinstance(tx["hash"], str) or not TX_HASH_REGEX.match(tx["hash"]):
-        raise InvalidTransactionError("Invalid transaction hash format")
-
-    if not isinstance(tx["amount"], (int, float)) or tx["amount"] <= 0:
-        raise InvalidTransactionError("Amount must be a positive number")
-
-
-def process_transaction_queue(transactions: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
-    processed = []
-    for tx in transactions:
-        try:
-            validate_transaction(tx)
-            tx_record = dict(tx)
-            tx_record["status"] = "validated"
-            processed.append(tx_record)
-        except InvalidTransactionError as err:
-            tx_record = dict(tx) if isinstance(tx, dict) else {"raw": tx}
-            tx_record["status"] = "rejected"
-            tx_record["error"] = str(err)
-            processed.append(tx_record)
-    return processed
+def calculate_position_size(balance: float, risk_percentage: float, stop_loss_pct: float) -> float:
+    risk_amount = balance * (risk_percentage / 100)
+    return risk_amount / (stop_loss_pct / 100)
