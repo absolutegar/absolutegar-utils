@@ -1,32 +1,19 @@
-class CryptoBaseError(Exception):
+class AbsolutegarError(Exception):
     """Base exception for absolutegar-utils."""
 
+class InsufficientLiquidityError(AbsolutegarError):
+    """Raised when pool reserves are empty."""
 
-class DataFormatError(CryptoBaseError):
-    """Raised when input data fails schema validation."""
+class InvalidSignatureError(AbsolutegarError):
+    """Raised when transaction signature is malformed."""
 
+class NetworkTimeoutError(AbsolutegarError):
+    """Raised when RPC node fails to respond."""
 
-class ExchangeConnectionError(CryptoBaseError):
-    """Raised when connectivity to exchange is lost."""
+class ConfigurationError(AbsolutegarError):
+    """Raised when environment variables are missing."""
 
-
-class RateLimitError(CryptoBaseError):
-    """Raised when API rate limit is exceeded."""
-
-
-class InsufficientFundsError(CryptoBaseError):
-    """Raised when wallet balance is too low."""
-
-
-def validate_response(data: dict) -> None:
-    if not isinstance(data, dict):
-        raise DataFormatError("Invalid response format")
-    if "error" in data:
-        raise CryptoBaseError(f"API Error: {data['error']}")
-
-
-def handle_request_error(status_code: int) -> None:
-    if status_code == 429:
-        raise RateLimitError("Rate limit reached")
-    if status_code >= 500:
-        raise ExchangeConnectionError("Remote exchange server error")
+def handle_critical_failure(error: Exception) -> None:
+    if not isinstance(error, AbsolutegarError):
+        raise RuntimeError("Unhandled non-crypto exception caught") from error
+    print(f"Critical failure in absolutegar: {type(error).__name__}")
