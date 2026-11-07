@@ -1,36 +1,37 @@
 import hashlib
+import hmac
+from collections import deque
 from functools import lru_cache
 from typing import List, Tuple
 
 
-@lru_cache(maxsize=2048)
-def fast_double_sha256(payload: bytes) -> bytes:
-    return hashlib.sha256(hashlib.sha256(payload).digest()).digest()
+class FastCryptoEngine:
+    def __init__(self, secret: str, max_cache_size: int = 1024):
+        self.secret = secret.encode("utf-8")
+        self._buffer: deque = deque(maxlen=max_cache_size)
 
+    @lru_cache(maxsize=4096)
+    def generate_signature(self, payload: str) -> str:
+        return hmac.new(
+            self.secret, payload.encode("utf-8"), hashlib.sha256
+        ).hexdigest()
 
-class CoreCryptoProcessor:
-    """Optimized cryptographic payload and merkle tree processor."""
+    def verify_signature(self, payload: str, signature: str) -> bool:
+        expected = self.generate_signature(payload)
+        return hmac.compare_digest(expected, signature)
 
-    def __init__(self, batch_size: int = 1000):
-        self.batch_size = batch_size
+    def batch_verify(self, items: List[Tuple[str, str]]) -> List[bool]:
+        return [self.verify_signature(p, sig) for p, sig in items]
 
-    @staticmethod
-    def hash_payload(data: bytes) -> bytes:
-        return fast_double_sha256(data)
+    def push_ticker_delta(self, price: float, volume: float) -> None:
+        self._buffer.append((price, volume))
 
-    def build_merkle_root(self, leaf_hashes: List[bytes]) -> bytes:
-        if not leaf_hashes:
-            return b""
+    def calculate_vwap(self) -> float:
+        if not self._buffer:
+            return 0.0
+        total_pv = sum(price * vol for price, vol in self._buffer)
+        total_vol = sum(vol for _, vol in self._buffer)
+        return total_pv / total_vol if total_vol > 0 else 0.0
 
-        nodes = list(leaf_hashes)
-        while len(nodes) > 1:
-            if len(nodes) % 2 == 1:
-                nodes.append(nodes[-1])
-            nodes = [
-                fast_double_sha256(nodes[i] + nodes[i + 1])
-                for i in range(0, len(nodes), 2)
-            ]
-        return nodes[0]
-
-    def process_batch(self, payloads: List[bytes]) -> List[Tuple[bytes, bytes]]:
-        return [(fast_double_sha256(p), p) for p in payloads]
+    def clear_cache(self) -> None:
+        self.generate_signature.cache_clear()
