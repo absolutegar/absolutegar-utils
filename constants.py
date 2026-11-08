@@ -1,25 +1,25 @@
-from typing import Final
-from enum import IntEnum
+from typing import Final, Dict
 
-CACHE_TTL: Final[int] = 3600
+CACHE_TTL_SECONDS: Final[int] = 3600
 MAX_RETRIES: Final[int] = 3
-PRECISION: Final[int] = 18
+PRECISION_LIMIT: Final[int] = 18
 
-class ChainID(IntEnum):
-    ETHEREUM = 1
-    OPTIMISM = 10
-    ARBITRUM = 42161
+CRYPTO_PAIRS: Final[Dict[str, str]] = {
+    'BTC': 'bitcoin',
+    'ETH': 'ethereum',
+    'SOL': 'solana',
+    'DOT': 'polkadot',
+    'ADA': 'cardano'
+}
 
-HTTP_TIMEOUT: Final[float] = 10.0
-CHUNK_SIZE: Final[int] = 1024
+RPC_TIMEOUT: Final[float] = 5.0
+BATCH_SIZE: Final[int] = 100
 
-SUPPORTED_ASSETS: Final[tuple[str, ...]] = (
-    'ETH',
-    'USDC',
-    'USDT',
-    'WBTC',
-    'DAI'
-)
+def get_precision_multiplier(decimals: int = PRECISION_LIMIT) -> int:
+    return 10**decimals
 
-GAS_BUFFER_MULTIPLIER: Final[float] = 1.2
-NONCE_CACHE_KEY: Final[str] = 'addr_nonce_map'
+SUPPORTED_NETWORKS: Final[tuple] = ('mainnet', 'testnet', 'devnet')
+DEFAULT_HEADERS: Final[Dict[str, str]] = {
+    'Content-Type': 'application/json',
+    'User-Agent': 'absolutegar-utils/1.0.0'
+}
