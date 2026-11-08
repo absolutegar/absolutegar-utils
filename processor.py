@@ -1,31 +1,32 @@
-import hashlib
-import hmac
-import base64
 from typing import Dict, Any
 
-def generate_signature(api_secret: str, message: str) -> str:
-    return hmac.new(
-        api_secret.encode('utf-8'),
-        message.encode('utf-8'),
-        hashlib.sha256
-    ).hexdigest()
+class DataProcessor:
+    def __init__(self, schema: Dict[str, type]):
+        self.schema = schema
 
-def format_order_payload(symbol: str, side: str, amount: float, price: float) -> Dict[str, Any]:
-    return {
-        "symbol": symbol.upper(),
-        "side": side.lower(),
-        "quantity": str(amount),
-        "price": str(price),
-        "timestamp": None
-    }
+    def validate(self, data: Dict[str, Any]) -> bool:
+        if not isinstance(data, dict):
+            return False
+        for key, expected_type in self.schema.items():
+            if key not in data or not isinstance(data[key], expected_type):
+                return False
+        return True
 
-def encode_auth_header(api_key: str, secret: str) -> str:
-    credentials = f"{api_key}:{secret}"
-    return base64.b64encode(credentials.encode('utf-8')).decode('utf-8')
+    def process_stream(self, data_stream: list):
+        for entry in data_stream:
+            if not self.validate(entry):
+                continue
+            self._execute(entry)
 
-def validate_price_precision(price: float, tick_size: float) -> bool:
-    return (price / tick_size).is_integer()
+    def _execute(self, data: Dict[str, Any]):
+        pass
 
-def calculate_position_size(balance: float, risk_percentage: float, stop_loss_pct: float) -> float:
-    risk_amount = balance * (risk_percentage / 100)
-    return risk_amount / (stop_loss_pct / 100)
+if __name__ == '__main__':
+    schema = {'id': int, 'amount': float, 'address': str}
+    processor = DataProcessor(schema)
+    data_payload = [
+        {'id': 1, 'amount': 0.05, 'address': '0xabc'},
+        {'id': 2, 'amount': 'invalid', 'address': '0xdef'},
+        {'id': 3, 'amount': 0.1, 'address': '0xghi'}
+    ]
+    processor.process_stream(data_payload)
