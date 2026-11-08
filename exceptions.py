@@ -1,19 +1,29 @@
-class AbsolutegarError(Exception):
+class AbsoluteGarError(Exception):
     """Base exception for absolutegar-utils."""
 
-class InsufficientLiquidityError(AbsolutegarError):
-    """Raised when pool reserves are empty."""
 
-class InvalidSignatureError(AbsolutegarError):
-    """Raised when transaction signature is malformed."""
+class InsufficientBalanceError(AbsoluteGarError):
+    """Raised when wallet balance is below threshold."""
 
-class NetworkTimeoutError(AbsolutegarError):
-    """Raised when RPC node fails to respond."""
 
-class ConfigurationError(AbsolutegarError):
-    """Raised when environment variables are missing."""
+class ChainConnectionError(AbsoluteGarError):
+    """Raised on RPC provider connection failure."""
 
-def handle_critical_failure(error: Exception) -> None:
-    if not isinstance(error, AbsolutegarError):
-        raise RuntimeError("Unhandled non-crypto exception caught") from error
-    print(f"Critical failure in absolutegar: {type(error).__name__}")
+
+class InvalidSignatureError(AbsoluteGarError):
+    """Raised when cryptographic signature verification fails."""
+
+
+class RateLimitError(AbsoluteGarError):
+    """Raised when API requests exceed limits."""
+
+
+def handle_crypto_error(err: Exception) -> None:
+    """Centralized error classification for crypto ops."""
+    if isinstance(err, (ConnectionError, TimeoutError)):
+        raise ChainConnectionError("Network connectivity issue detected") from err
+    if isinstance(err, ValueError) and "signature" in str(err).lower():
+        raise InvalidSignatureError("Invalid cryptographic signature provided") from err
+    if isinstance(err, (AttributeError, KeyError)):
+        raise AbsoluteGarError("Malformed response from provider") from err
+    raise err
