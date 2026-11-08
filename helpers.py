@@ -1,56 +1,38 @@
-import re
-from typing import Any, Dict, List
+from decimal import Decimal, ROUND_DOWN
+from typing import Union
+
+UNITS = {
+    "wei": 1,
+    "gwei": 10**9,
+    "ether": 10**18,
+}
 
 
-class ValidationError(Exception):
-    pass
+def to_wei(amount: Union[int, float, str], unit: str = "ether") -> int:
+    unit_lower = unit.lower()
+    if unit_lower not in UNITS:
+        raise ValueError(f"Unknown unit: {unit}")
+    dec_amount = Decimal(str(amount))
+    return int(dec_amount * UNITS[unit_lower])
 
 
-def is_valid_eth_address(address: str) -> bool:
-    return bool(re.match(r"^0x[a-fA-F0-9]{40}$", address))
+def from_wei(amount: int, unit: str = "ether") -> Decimal:
+    unit_lower = unit.lower()
+    if unit_lower not in UNITS:
+        raise ValueError(f"Unknown unit: {unit}")
+    return Decimal(amount) / Decimal(UNITS[unit_lower])
 
 
-def is_valid_tx_hash(tx_hash: str) -> bool:
-    return bool(re.match(r"^0x[a-fA-F0-9]{64}$", tx_hash))
+def calculate_slippage(expected_price: float, actual_price: float) -> float:
+    if expected_price <= 0:
+        raise ValueError("Expected price must be positive")
+    return ((actual_price - expected_price) / expected_price) * 100.0
 
 
-def validate_transaction_payload(payload: Dict[str, Any]) -> Dict[str, Any]:
-    required_keys = {"sender", "recipient", "amount", "tx_hash"}
-    if not required_keys.issubset(payload.keys()):
-        missing = required_keys - set(payload.keys())
-        raise ValidationError(f"Missing required fields: {', '.join(missing)}")
-
-    sender = str(payload["sender"])
-    recipient = str(payload["recipient"])
-    tx_hash = str(payload["tx_hash"])
-    amount = payload["amount"]
-
-    if not is_valid_eth_address(sender):
-        raise ValidationError(f"Invalid sender address: {sender}")
-
-    if not is_valid_eth_address(recipient):
-        raise ValidationError(f"Invalid recipient address: {recipient}")
-
-    if not is_valid_tx_hash(tx_hash):
-        raise ValidationError(f"Invalid transaction hash: {tx_hash}")
-
-    if not isinstance(amount, (int, float)) or amount <= 0:
-        raise ValidationError(f"Invalid transaction amount: {amount}")
-
-    return {
-        "sender": sender.lower(),
-        "recipient": recipient.lower(),
-        "amount": float(amount),
-        "tx_hash": tx_hash.lower(),
-    }
+def normalize_symbol(symbol: str) -> str:
+    return symbol.upper().replace("-", "").replace("_", "").replace("/", "")
 
 
-def process_batch_payloads(raw_payloads: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
-    validated_records = []
-    for item in raw_payloads:
-        try:
-            clean_item = validate_transaction_payload(item)
-            validated_records.append(clean_item)
-        except ValidationError:
-            continue
-    return validated_records
+def truncate_precision(val: Union[float, str, Decimal], decimals: int) -> Decimal:
+    fmt = "0." + "0" * decimals if decimals > 0 else "0"
+    return Decimal(str(val)).quantize(Decimal(fmt), rounding=ROUND_DOWN)
