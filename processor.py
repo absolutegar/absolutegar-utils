@@ -1,32 +1,56 @@
-from typing import Dict, Any
+import re
+from typing import Any, Dict, List, Optional
 
-class DataProcessor:
-    def __init__(self, schema: Dict[str, type]):
-        self.schema = schema
 
-    def validate(self, data: Dict[str, Any]) -> bool:
-        if not isinstance(data, dict):
-            return False
-        for key, expected_type in self.schema.items():
-            if key not in data or not isinstance(data[key], expected_type):
-                return False
-        return True
+class ValidationError(Exception):
+    pass
 
-    def process_stream(self, data_stream: list):
-        for entry in data_stream:
-            if not self.validate(entry):
-                continue
-            self._execute(entry)
 
-    def _execute(self, data: Dict[str, Any]):
-        pass
+def validate_address(address: str) -> bool:
+    if not isinstance(address, str):
+        return False
+    return bool(re.match(r"^0x[a-fA-F0-9]{40}$", address))
 
-if __name__ == '__main__':
-    schema = {'id': int, 'amount': float, 'address': str}
-    processor = DataProcessor(schema)
-    data_payload = [
-        {'id': 1, 'amount': 0.05, 'address': '0xabc'},
-        {'id': 2, 'amount': 'invalid', 'address': '0xdef'},
-        {'id': 3, 'amount': 0.1, 'address': '0xghi'}
-    ]
-    processor.process_stream(data_payload)
+
+def validate_payload(payload: Dict[str, Any]) -> None:
+    required_keys = {"sender", "recipient", "amount", "asset"}
+    if not isinstance(payload, dict):
+        raise ValidationError("Payload must be a dictionary")
+    missing = required_keys - payload.keys()
+    if missing:
+        raise ValidationError(f"Missing required fields: {', '.join(missing)}")
+    if not validate_address(payload["sender"]):
+        raise ValidationError(f"Invalid sender address: {payload['sender']}")
+    if not validate_address(payload["recipient"]):
+        raise ValidationError(f"Invalid recipient address: {payload['recipient']}")
+    if not isinstance(payload["amount"], (int, float)) or payload["amount"] <= 0:
+        raise ValidationError("Amount must be a positive number")
+    if not isinstance(payload["asset"], str) or not payload["asset"].isalnum():
+        raise ValidationError("Asset must be an alphanumeric string")
+
+
+class TransactionProcessor:
+    def __init__(self, supported_assets: Optional[List[str]] = None) -> None:
+        self.supported_assets = supported_assets or ["BTC", "ETH", "USDT"]
+
+    def process_batch(self, raw_transactions: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+        processed = []
+        for raw_tx in raw_transactions:
+            try:
+                validate_payload(raw_tx)
+                if raw_tx["asset"] not in self.supported_assets:
+                    raise ValidationError(f"Unsupported asset: {raw_tx['asset']}")
+                processed.append({
+                    "sender": raw_tx["sender"],
+                    "recipient": raw_tx["recipient"],
+                    "amount": float(raw_tx["amount"]),
+                    "asset": raw_tx["asset"].upper(),
+                    "status": "validated"
+                })
+            except ValidationError as err:
+                processed.append({
+                    "tx": raw_tx,
+                    "status": "failed",
+                    "error": str(err)
+                })
+        return processed
