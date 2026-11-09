@@ -2,26 +2,25 @@ import logging
 from logging.handlers import RotatingFileHandler
 from pathlib import Path
 
-def get_logger(name: str, log_file: str = "absolutegar.log") -> logging.Logger:
+def setup_logger(name: str, log_file: str = "absolutegar.log", level: int = logging.INFO) -> logging.Logger:
+    path = Path(log_file)
+    path.parent.mkdir(parents=True, exist_ok=True)
+
     logger = logging.getLogger(name)
-    logger.setLevel(logging.INFO)
+    logger.setLevel(level)
 
-    if not logger.handlers:
-        log_path = Path(log_file)
-        handler = RotatingFileHandler(
-            log_path,
-            maxBytes=10 * 1024 * 1024,
-            backupCount=5,
-            encoding="utf-8"
-        )
-        formatter = logging.Formatter(
-            "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
-        )
-        handler.setFormatter(formatter)
-        logger.addHandler(handler)
+    formatter = logging.Formatter(
+        "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+    )
 
-        console = logging.StreamHandler()
-        console.setFormatter(formatter)
-        logger.addHandler(console)
+    handler = RotatingFileHandler(
+        log_file, maxBytes=10 * 1024 * 1024, backupCount=5
+    )
+    handler.setFormatter(formatter)
+    logger.addHandler(handler)
+
+    console_handler = logging.StreamHandler()
+    console_handler.setFormatter(formatter)
+    logger.addHandler(console_handler)
 
     return logger
