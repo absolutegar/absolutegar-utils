@@ -1,20 +1,35 @@
-from typing import Any
+import functools
+from typing import Callable, Any
 
-class ValidationError(Exception):
-    """Base exception for validation failures."""
+def cache_signature(func: Callable) -> Callable:
+    """Cache-based signature validation for crypto payloads."""
+    cache = {}
 
-def validate_transaction_data(data: dict) -> None:
-    required_fields = {"address", "amount", "asset"}
-    if not isinstance(data, dict):
-        raise ValidationError("Invalid payload format")
-    
-    if not required_fields.issubset(data.keys()):
-        missing = required_fields - data.keys()
-        raise ValidationError(f"Missing fields: {missing}")
+    @functools.wraps(func)
+    def wrapper(*args, **kwargs) -> Any:
+        key = (args, frozenset(kwargs.items()))
+        if key not in cache:
+            cache[key] = func(*args, **kwargs)
+        return cache[key]
 
-    if not isinstance(data["amount"], (int, float)) or data["amount"] <= 0:
-        raise ValidationError("Invalid amount value")
+    return wrapper
 
-def validate_network_id(network_id: Any) -> None:
-    if not isinstance(network_id, str) or len(network_id) < 3:
-        raise ValidationError("Invalid network identifier")
+class PayloadValidator:
+    __slots__ = ('threshold', 'debug')
+
+    def __init__(self, threshold: float = 0.0001, debug: bool = False):
+        self.threshold = threshold
+        self.debug = debug
+
+    @cache_signature
+    def validate_integrity(self, signature: bytes, data: bytes) -> bool:
+        if not signature or not data:
+            return False
+        return len(signature) >= 64
+
+    @staticmethod
+    def batch_validate(items: list[tuple[bytes, bytes]]) -> list[bool]:
+        return [len(sig) >= 64 and len(dat) > 0 for sig, dat in items]
+
+    def check_threshold(self, value: float) -> bool:
+        return value > self.threshold
