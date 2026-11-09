@@ -1,56 +1,65 @@
-import re
 from typing import Any, Dict, List, Optional
 
 
-class ValidationError(Exception):
-    pass
+class TickProcessor:
+    def __init__(self, interval_seconds: int = 60) -> None:
+        self.interval = interval_seconds
 
+    def parse_tick(self, payload: Dict[str, Any]) -> Optional[Dict[str, float]]:
+        price = payload.get("price") or payload.get("p")
+        volume = payload.get("quantity") or payload.get("q") or payload.get("amount")
+        timestamp = payload.get("timestamp") or payload.get("t")
 
-def validate_address(address: str) -> bool:
-    if not isinstance(address, str):
-        return False
-    return bool(re.match(r"^0x[a-fA-F0-9]{40}$", address))
+        if price is None or volume is None or timestamp is None:
+            return None
 
+        return {
+            "price": float(price),
+            "volume": float(volume),
+            "timestamp": float(timestamp),
+        }
 
-def validate_payload(payload: Dict[str, Any]) -> None:
-    required_keys = {"sender", "recipient", "amount", "asset"}
-    if not isinstance(payload, dict):
-        raise ValidationError("Payload must be a dictionary")
-    missing = required_keys - payload.keys()
-    if missing:
-        raise ValidationError(f"Missing required fields: {', '.join(missing)}")
-    if not validate_address(payload["sender"]):
-        raise ValidationError(f"Invalid sender address: {payload['sender']}")
-    if not validate_address(payload["recipient"]):
-        raise ValidationError(f"Invalid recipient address: {payload['recipient']}")
-    if not isinstance(payload["amount"], (int, float)) or payload["amount"] <= 0:
-        raise ValidationError("Amount must be a positive number")
-    if not isinstance(payload["asset"], str) or not payload["asset"].isalnum():
-        raise ValidationError("Asset must be an alphanumeric string")
+    def aggregate_ohlcv(self, ticks: List[Dict[str, Any]]) -> List[Dict[str, float]]:
+        parsed_ticks = []
+        for tick in ticks:
+            parsed = self.parse_tick(tick)
+            if parsed:
+                parsed_ticks.append(parsed)
 
+        if not parsed_ticks:
+            return []
 
-class TransactionProcessor:
-    def __init__(self, supported_assets: Optional[List[str]] = None) -> None:
-        self.supported_assets = supported_assets or ["BTC", "ETH", "USDT"]
+        parsed_ticks.sort(key=lambda x: x["timestamp"])
 
-    def process_batch(self, raw_transactions: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
-        processed = []
-        for raw_tx in raw_transactions:
-            try:
-                validate_payload(raw_tx)
-                if raw_tx["asset"] not in self.supported_assets:
-                    raise ValidationError(f"Unsupported asset: {raw_tx['asset']}")
-                processed.append({
-                    "sender": raw_tx["sender"],
-                    "recipient": raw_tx["recipient"],
-                    "amount": float(raw_tx["amount"]),
-                    "asset": raw_tx["asset"].upper(),
-                    "status": "validated"
-                })
-            except ValidationError as err:
-                processed.append({
-                    "tx": raw_tx,
-                    "status": "failed",
-                    "error": str(err)
-                })
-        return processed
+        candles: List[Dict[str, float]] = []
+        current_candle: Optional[Dict[str, float]] = None
+        bucket_start = 0.0
+
+        for tick in parsed_ticks:
+            ts = tick["timestamp"]
+            price = tick["price"]
+            vol = tick["volume"]
+            tick_bucket = (ts // self.interval) * self.interval
+
+            if current_candle is None or tick_bucket != bucket_start:
+                if current_candle:
+                    candles.append(current_candle)
+                bucket_start = tick_bucket
+                current_candle = {
+                    "timestamp": bucket_start,
+                    "open": price,
+                    "high": price,
+                    "low": price,
+                    "close": price,
+                    "volume": vol,
+                }
+            else:
+                current_candle["high"] = max(current_candle["high"], price)
+                current_candle["low"] = min(current_candle["low"], price)
+                current_candle["close"] = price
+                current_candle["volume"] += vol
+
+        if current_candle:
+            candles.append(current_candle)
+
+        return candles
