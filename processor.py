@@ -1,31 +1,40 @@
-import logging
-from typing import Any, Optional
+import hashlib
+import hmac
+from decimal import Decimal, ROUND_DOWN
+from typing import Any, Dict, Union
 
-class ProcessingError(Exception):
-    pass
 
-def validate_payload(data: Any) -> bool:
-    if not isinstance(data, dict):
-        raise ProcessingError('invalid data structure')
-    if 'nonce' not in data:
-        raise ProcessingError('missing required nonce field')
-    return True
+class CryptoProcessor:
 
-def process_transaction(payload: Any) -> Optional[dict]:
-    try:
-        validate_payload(payload)
-        return {'status': 'success', 'id': payload.get('nonce')}
-    except ProcessingError as e:
-        logging.error(f'validation failure: {e}')
-        return None
-    except Exception as e:
-        logging.critical(f'unexpected system fault: {e}')
-        return None
+    @staticmethod
+    def to_wei(amount: Union[int, float, str, Decimal], decimals: int = 18) -> int:
+        val = Decimal(str(amount))
+        return int(val * (Decimal(10) ** decimals))
 
-def batch_process(items: list) -> list:
-    results = []
-    for item in items:
-        result = process_transaction(item)
-        if result:
-            results.append(result)
-    return results
+    @staticmethod
+    def from_wei(amount: int, decimals: int = 18) -> Decimal:
+        val = Decimal(str(amount))
+        return val / (Decimal(10) ** decimals)
+
+    @staticmethod
+    def generate_signature(secret: str, payload: str) -> str:
+        return hmac.new(
+            secret.encode("utf-8"),
+            payload.encode("utf-8"),
+            hashlib.sha256,
+        ).hexdigest()
+
+    @staticmethod
+    def parse_trade_payload(raw_data: Dict[str, Any]) -> Dict[str, Any]:
+        symbol = str(raw_data.get("symbol", "")).upper()
+        price = Decimal(str(raw_data.get("price", "0")))
+        quantity = Decimal(str(raw_data.get("quantity", "0")))
+        total = (price * quantity).quantize(Decimal("0.00000001"), rounding=ROUND_DOWN)
+
+        return {
+            "symbol": symbol,
+            "price": price,
+            "quantity": quantity,
+            "total": total,
+            "timestamp": raw_data.get("timestamp"),
+        }
