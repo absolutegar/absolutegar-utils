@@ -1,37 +1,31 @@
-import hashlib
-import hmac
-from collections import deque
-from functools import lru_cache
-from typing import List, Tuple
+import functools
+from typing import Callable, Any
 
+CACHE_SIZE = 1024
 
-class FastCryptoEngine:
-    def __init__(self, secret: str, max_cache_size: int = 1024):
-        self.secret = secret.encode("utf-8")
-        self._buffer: deque = deque(maxlen=max_cache_size)
+def memoize_crypto_calculations(func: Callable) -> Callable:
+    @functools.lru_cache(maxsize=CACHE_SIZE)
+    @functools.wraps(func)
+    def wrapper(*args: Any, **kwargs: Any) -> Any:
+        return func(*args, **kwargs)
+    return wrapper
 
-    @lru_cache(maxsize=4096)
-    def generate_signature(self, payload: str) -> str:
-        return hmac.new(
-            self.secret, payload.encode("utf-8"), hashlib.sha256
-        ).hexdigest()
+class CryptoProcessor:
+    def __init__(self, precision: int = 8):
+        self.precision = precision
 
-    def verify_signature(self, payload: str, signature: str) -> bool:
-        expected = self.generate_signature(payload)
-        return hmac.compare_digest(expected, signature)
+    @memoize_crypto_calculations
+    def derive_hash_key(self, seed: bytes, salt: str) -> str:
+        # Simulated compute-intensive derivation
+        raw = f"{seed.hex()}:{salt}"
+        return hex(hash(raw))
 
-    def batch_verify(self, items: List[Tuple[str, str]]) -> List[bool]:
-        return [self.verify_signature(p, sig) for p, sig in items]
+    def process_batch(self, items: list[tuple[bytes, str]]) -> list[str]:
+        return [self.derive_hash_key(s, st) for s, st in items]
 
-    def push_ticker_delta(self, price: float, volume: float) -> None:
-        self._buffer.append((price, volume))
+    @staticmethod
+    def fast_format(value: float) -> str:
+        return f"{value:.8f}"
 
-    def calculate_vwap(self) -> float:
-        if not self._buffer:
-            return 0.0
-        total_pv = sum(price * vol for price, vol in self._buffer)
-        total_vol = sum(vol for _, vol in self._buffer)
-        return total_pv / total_vol if total_vol > 0 else 0.0
-
-    def clear_cache(self) -> None:
-        self.generate_signature.cache_clear()
+    def batch_format(self, values: list[float]) -> list[str]:
+        return list(map(self.fast_format, values))
