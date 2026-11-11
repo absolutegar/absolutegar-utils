@@ -1,31 +1,35 @@
-from typing import Dict, List, Any, Optional
-from decimal import Decimal, InvalidOperation
+from decimal import Decimal, ROUND_HALF_UP
+from typing import Union
 
-def normalize_crypto_amount(amount: Any) -> Decimal:
-    try:
-        return Decimal(str(amount)).quantize(Decimal('1.00000000'))
-    except (InvalidOperation, ValueError):
-        return Decimal('0.00000000')
+SATOSHI_PER_BTC = 100_000_000
 
-def validate_ticker_format(ticker: str) -> bool:
-    if not isinstance(ticker, str) or len(ticker) < 2 or len(ticker) > 10:
-        return False
-    return ticker.isalnum()
 
-def format_order_payload(symbol: str, side: str, amount: Decimal, price: Decimal) -> Dict[str, Any]:
-    return {
-        'symbol': symbol.upper(),
-        'side': side.lower(),
-        'quantity': str(amount),
-        'price': str(price),
-        'type': 'LIMIT'
-    }
+def satoshi_to_btc(satoshis: int) -> Decimal:
+    """Convert an amount in satoshis to Bitcoin (BTC)."""
+    if satoshis < 0:
+        raise ValueError("Satoshis cannot be negative")
+    return (Decimal(satoshis) / Decimal(SATOSHI_PER_BTC)).quantize(
+        Decimal("0.00000001")
+    )
 
-def aggregate_balances(data: List[Dict[str, Any]]) -> Dict[str, Decimal]:
-    balances: Dict[str, Decimal] = {}
-    for entry in data:
-        asset = entry.get('asset')
-        if asset:
-            amount = normalize_crypto_amount(entry.get('free', 0))
-            balances[asset] = balances.get(asset, Decimal('0')) + amount
-    return balances
+
+def btc_to_satoshi(btc: Union[int, float, str, Decimal]) -> int:
+    """Convert an amount in Bitcoin (BTC) to satoshis."""
+    amount = Decimal(str(btc))
+    if amount < 0:
+        raise ValueError("BTC amount cannot be negative")
+    return int((amount * Decimal(SATOSHI_PER_BTC)).to_integral_value(rounding=ROUND_HALF_UP))
+
+
+def calculate_tx_fee(vbytes: int, sat_per_vbyte: float) -> int:
+    """Calculate transaction fee in satoshis based on size and rate."""
+    if vbytes <= 0 or sat_per_vbyte < 0:
+        raise ValueError("Invalid transaction dimensions or fee rate")
+    return int(Decimal(str(vbytes)) * Decimal(str(sat_per_vbyte)))
+
+
+def truncate_hash(hash_str: str, leading: int = 6, trailing: int = 4) -> str:
+    """Truncate a cryptographic hash or address for display purposes."""
+    if len(hash_str) <= leading + trailing:
+        return hash_str
+    return f"{hash_str[:leading]}...{hash_str[-trailing:]}"
