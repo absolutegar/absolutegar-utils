@@ -1,29 +1,44 @@
-class AbsoluteGarError(Exception):
-    """Base exception for absolutegar-utils."""
+class CryptoUtilsError(Exception):
+    """Base exception for all crypto utility errors."""
 
 
-class InsufficientBalanceError(AbsoluteGarError):
-    """Raised when wallet balance is below threshold."""
+class InvalidAddressError(CryptoUtilsError):
+    def __init__(self, address: str, chain: str = "unknown") -> None:
+        self.address = address
+        self.chain = chain
+        super().__init__(f"Invalid {chain} address format: '{address}'")
 
 
-class ChainConnectionError(AbsoluteGarError):
-    """Raised on RPC provider connection failure."""
+class InsufficientBalanceError(CryptoUtilsError):
+    def __init__(self, required: float, available: float, symbol: str) -> None:
+        self.required = required
+        self.available = available
+        self.symbol = symbol
+        super().__init__(
+            f"Insufficient {symbol} balance: required {required}, available {available}"
+        )
 
 
-class InvalidSignatureError(AbsoluteGarError):
-    """Raised when cryptographic signature verification fails."""
+class SignatureVerificationError(CryptoUtilsError):
+    def __init__(self, message: str = "Signature verification failed") -> None:
+        super().__init__(message)
 
 
-class RateLimitError(AbsoluteGarError):
-    """Raised when API requests exceed limits."""
+class RateLimitExceededError(CryptoUtilsError):
+    def __init__(self, provider: str, retry_after: int | None = None) -> None:
+        self.provider = provider
+        self.retry_after = retry_after
+        msg = f"Rate limit exceeded for provider '{provider}'"
+        if retry_after is not None:
+            msg += f". Retry after {retry_after} seconds"
+        super().__init__(msg)
 
 
-def handle_crypto_error(err: Exception) -> None:
-    """Centralized error classification for crypto ops."""
-    if isinstance(err, (ConnectionError, TimeoutError)):
-        raise ChainConnectionError("Network connectivity issue detected") from err
-    if isinstance(err, ValueError) and "signature" in str(err).lower():
-        raise InvalidSignatureError("Invalid cryptographic signature provided") from err
-    if isinstance(err, (AttributeError, KeyError)):
-        raise AbsoluteGarError("Malformed response from provider") from err
-    raise err
+class StalePriceError(CryptoUtilsError):
+    def __init__(self, symbol: str, age_seconds: float, max_age: float) -> None:
+        self.symbol = symbol
+        self.age_seconds = age_seconds
+        self.max_age = max_age
+        super().__init__(
+            f"Price feed for {symbol} is stale ({age_seconds:.1f}s old, max allowed {max_age}s)"
+        )
