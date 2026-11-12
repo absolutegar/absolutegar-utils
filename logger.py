@@ -1,44 +1,24 @@
 import logging
 import sys
-from logging.handlers import RotatingFileHandler
-from pathlib import Path
+from typing import Optional
 
+class AbsoluteLogger:
+    def __init__(self, name: str = "absolutegar", level: int = logging.INFO):
+        self.logger = logging.getLogger(name)
+        self.logger.setLevel(level)
+        self.logger.propagate = False
+        self._setup_handlers()
 
-def setup_logger(
-    name: str = "absolutegar",
-    log_file: str = "logs/crypto.log",
-    level: int = logging.INFO,
-    max_bytes: int = 10_000_000,
-    backup_count: int = 5,
-) -> logging.Logger:
-    logger = logging.getLogger(name)
-    logger.setLevel(level)
+    def _setup_handlers(self) -> None:
+        formatter = logging.Formatter(
+            "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+        )
+        stdout_handler = logging.StreamHandler(sys.stdout)
+        stdout_handler.setFormatter(formatter)
+        self.logger.addHandler(stdout_handler)
 
-    if logger.handlers:
-        return logger
+    def get_logger(self) -> logging.Logger:
+        return self.logger
 
-    log_path = Path(log_file)
-    log_path.parent.mkdir(parents=True, exist_ok=True)
-
-    formatter = logging.Formatter(
-        "%(asctime)s | %(levelname)-8s | %(name)s | %(message)s",
-        datefmt="%Y-%m-%d %H:%M:%S",
-    )
-
-    console_handler = logging.StreamHandler(sys.stdout)
-    console_handler.setFormatter(formatter)
-    logger.addHandler(console_handler)
-
-    file_handler = RotatingFileHandler(
-        log_path,
-        maxBytes=max_bytes,
-        backupCount=backup_count,
-        encoding="utf-8",
-    )
-    file_handler.setFormatter(formatter)
-    logger.addHandler(file_handler)
-
-    return logger
-
-
-get_logger = setup_logger
+def get_default_logger(name: str = "absolutegar") -> logging.Logger:
+    return AbsoluteLogger(name).get_logger()
