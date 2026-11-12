@@ -1,36 +1,24 @@
+import json
 import os
-from typing import Any, Dict, Optional
-
-DEFAULT_CONFIG: Dict[str, Any] = {
-    "RPC_URL": "https://mainnet.infura.io/v3/",
-    "TIMEOUT": 30,
-    "MAX_RETRIES": 3,
-    "DEBUG": False
-}
+from typing import Any, Dict
 
 class ConfigLoader:
-    def __init__(self, overrides: Optional[Dict[str, Any]] = None):
-        self._config = DEFAULT_CONFIG.copy()
-        if overrides:
-            self._config.update(overrides)
-        self._load_from_env()
+    def __init__(self, defaults: Dict[str, Any] = None):
+        self.defaults = defaults or {}
+        self._config: Dict[str, Any] = {}
 
-    def _load_from_env(self) -> None:
-        for key in self._config:
-            env_val = os.getenv(f"ABSOLUTEGAR_{key}")
-            if env_val:
-                self._config[key] = self._cast_value(key, env_val)
+    def load(self, path: str) -> None:
+        if not os.path.exists(path):
+            self._config = self.defaults.copy()
+            return
 
-    def _cast_value(self, key: str, value: str) -> Any:
-        default = self._config[key]
-        if isinstance(default, bool):
-            return value.lower() in ("true", "1", "yes")
-        if isinstance(default, int):
-            return int(value)
-        return value
+        with open(path, 'r') as f:
+            data = json.load(f)
+            self._config = {**self.defaults, **data}
 
-    def get(self, key: str) -> Any:
-        return self._config.get(key)
+    def get(self, key: str, default: Any = None) -> Any:
+        return self._config.get(key, default)
 
-def get_config() -> ConfigLoader:
-    return ConfigLoader()
+    @property
+    def all(self) -> Dict[str, Any]:
+        return self._config.copy()
