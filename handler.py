@@ -1,28 +1,30 @@
-from typing import Dict, Any, Optional
+import hashlib
+import hmac
+from typing import Dict, Any
 
-class CryptoTransactionHandler:
-    """Handles cryptographic transaction processing and validation."""
+class CryptoHandler:
+    def __init__(self, secret: str):
+        self.secret = secret.encode('utf-8')
 
-    def __init__(self, network: str = "mainnet") -> None:
-        self.network: str = network
+    def generate_signature(self, payload: str) -> str:
+        return hmac.new(
+            self.secret, 
+            payload.encode('utf-8'), 
+            hashlib.sha256
+        ).hexdigest()
 
-    def process_payload(self, payload: Dict[str, Any]) -> Dict[str, Any]:
-        """Validates and parses transaction payload."""
-        if "tx_hash" not in payload:
-            raise ValueError("Missing transaction hash")
+    def validate_payload(self, payload: str, signature: str) -> bool:
+        expected = self.generate_signature(payload)
+        return hmac.compare_digest(expected, signature)
+
+    @staticmethod
+    def sanitize_data(data: Dict[str, Any]) -> Dict[str, Any]:
+        return {k: str(v).strip() for k, v in data.items() if v is not None}
+
+    def process_order(self, order_data: Dict[str, Any], signature: str) -> bool:
+        serialized = str(order_data)
+        if not self.validate_payload(serialized, signature):
+            return False
         
-        return {
-            "status": "processed",
-            "network": self.network,
-            "hash": payload["tx_hash"].lower()
-        }
-
-    def get_fee_estimate(self, amount: float, gas_price: float) -> float:
-        """Calculates estimated transaction fee."""
-        return float(amount * gas_price)
-
-    def execute_transfer(self, sender: str, recipient: str, amount: float) -> Optional[str]:
-        """Executes transfer between two addresses."""
-        if amount <= 0:
-            return None
-        return f"transfer_{sender}_to_{recipient}_{amount}"
+        cleaned = self.sanitize_data(order_data)
+        return 'price' in cleaned and 'quantity' in cleaned
