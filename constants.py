@@ -1,32 +1,26 @@
-from decimal import Decimal
-from typing import Dict, Final, Tuple
+from typing import Final
 
-CHAIN_ID_ETHEREUM: Final[int] = 1
-CHAIN_ID_OPTIMISM: Final[int] = 10
-CHAIN_ID_BSC: Final[int] = 56
-CHAIN_ID_POLYGON: Final[int] = 137
-CHAIN_ID_ARBITRUM: Final[int] = 42161
+# Network identifiers
+MAINNET_ID: Final[str] = "0x1"
+TESTNET_ID: Final[str] = "0xaa36a7"
 
-TOKEN_DECIMALS: Final[Dict[str, int]] = {
-    "BTC": 8,
-    "ETH": 18,
-    "USDT": 6,
-    "USDC": 6,
-    "DAI": 18,
-    "WBTC": 8,
-    "SOL": 9,
-}
+# Transaction defaults
+DEFAULT_GAS_LIMIT: Final[int] = 21000
+MAX_RETRIES: Final[int] = 3
+TIMEOUT_SECONDS: Final[int] = 30
 
-WEI_PER_ETH: Final[Decimal] = Decimal("1000000000000000000")
-SATOSHI_PER_BTC: Final[Decimal] = Decimal("100000000")
-GWEI_PER_ETH: Final[Decimal] = Decimal("1000000000")
+# API endpoints
+INFURA_BASE_URL: Final[str] = "https://mainnet.infura.io/v3/"
+ALCHEMY_BASE_URL: Final[str] = "https://eth-mainnet.g.alchemy.com/v2/"
 
-DEFAULT_RPC_URLS: Final[Dict[int, str]] = {
-    CHAIN_ID_ETHEREUM: "https://ethereum.publicnode.com",
-    CHAIN_ID_OPTIMISM: "https://mainnet.optimism.io",
-    CHAIN_ID_BSC: "https://bsc-dataseed.binance.org",
-    CHAIN_ID_POLYGON: "https://polygon-rpc.com",
-    CHAIN_ID_ARBITRUM: "https://arb1.arbitrum.io/rpc",
-}
+# Crypto currency constants
+WEI_PER_ETHER: Final[int] = 10**18
+GWEI_PER_ETHER: Final[int] = 10**9
 
-STABLECOIN_SYMBOLS: Final[Tuple[str, ...]] = ("USDT", "USDC", "DAI", "BUSD", "FRAX")
+# Error messages
+ERR_CONNECTION_FAILED: Final[str] = "network connection failed"
+ERR_INVALID_ADDRESS: Final[str] = "provided address format is invalid"
+ERR_INSUFFICIENT_FUNDS: Final[str] = "account balance too low for operation"
+
+# Supported protocols
+PROTOCOLS: Final[list[str]] = ["erc20", "erc721", "erc1155"]
