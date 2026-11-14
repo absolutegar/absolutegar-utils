@@ -1,28 +1,35 @@
-import hashlib
-import hmac
-from decimal import Decimal
-from typing import Any, Dict
+import time
+import functools
+import logging
+from typing import Callable, Any
 
-def normalize_amount(amount: str | float) -> Decimal:
-    return Decimal(str(amount)).quantize(Decimal('1.00000000'))
+logger = logging.getLogger(__name__)
 
-def generate_signature(api_secret: str, payload: str) -> str:
-    return hmac.new(
-        api_secret.encode('utf-8'),
-        payload.encode('utf-8'),
-        hashlib.sha256
-    ).hexdigest()
+def retry_on_failure(retries: int = 3, delay: float = 1.0, backoff: int = 2):
+    def decorator(func: Callable):
+        @functools.wraps(func)
+        def wrapper(*args, **kwargs) -> Any:
+            current_delay = delay
+            for attempt in range(retries):
+                try:
+                    return func(*args, **kwargs)
+                except Exception as e:
+                    if attempt == retries - 1:
+                        logger.error(f"failed after {retries} attempts: {e}")
+                        raise
+                    time.sleep(current_delay)
+                    current_delay *= backoff
+            return None
+        return wrapper
+    return decorator
 
-def parse_crypto_pair(pair: str) -> tuple[str, str]:
-    parts = pair.upper().split('_')
-    if len(parts) != 2:
-        raise ValueError('Invalid pair format')
-    return parts[0], parts[1]
+class NetworkProcessor:
+    @retry_on_failure(retries=3, delay=2.0)
+    def fetch_market_data(self, endpoint: str) -> dict:
+        # implementation for crypto data retrieval
+        return {"status": "ok"}
 
-def clean_order_data(data: Dict[str, Any]) -> Dict[str, Any]:
-    return {
-        'symbol': data['symbol'].upper(),
-        'side': data['side'].lower(),
-        'quantity': str(normalize_amount(data['quantity'])),
-        'price': str(normalize_amount(data['price']))
-    }
+    @retry_on_failure(retries=5, delay=0.5)
+    def broadcast_transaction(self, tx_hex: str) -> str:
+        # implementation for crypto tx broadcasting
+        return "tx_hash_0x123"
