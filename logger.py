@@ -1,24 +1,28 @@
 import logging
-import sys
-from typing import Optional
+from logging.handlers import RotatingFileHandler
+from pathlib import Path
 
-class AbsoluteLogger:
-    def __init__(self, name: str = "absolutegar", level: int = logging.INFO):
-        self.logger = logging.getLogger(name)
-        self.logger.setLevel(level)
-        self.logger.propagate = False
-        self._setup_handlers()
+def setup_logger(name: str, log_file: str = 'crypto.log', level: int = logging.INFO) -> logging.Logger:
+    path = Path(log_file)
+    path.parent.mkdir(parents=True, exist_ok=True)
 
-    def _setup_handlers(self) -> None:
-        formatter = logging.Formatter(
-            "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
-        )
-        stdout_handler = logging.StreamHandler(sys.stdout)
-        stdout_handler.setFormatter(formatter)
-        self.logger.addHandler(stdout_handler)
+    formatter = logging.Formatter(
+        '%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+    )
 
-    def get_logger(self) -> logging.Logger:
-        return self.logger
+    handler = RotatingFileHandler(
+        log_file, 
+        maxBytes=10 * 1024 * 1024, 
+        backupCount=5
+    )
+    handler.setFormatter(formatter)
 
-def get_default_logger(name: str = "absolutegar") -> logging.Logger:
-    return AbsoluteLogger(name).get_logger()
+    logger = logging.getLogger(name)
+    logger.setLevel(level)
+    logger.addHandler(handler)
+
+    return logger
+
+if __name__ == '__main__':
+    logger = setup_logger('absolutegar')
+    logger.info('logger initialized')
