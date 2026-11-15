@@ -1,25 +1,36 @@
-import hashlib
-import hmac
+import functools
 import time
-from typing import Dict, Any
+from typing import Callable, Any, Dict
 
-def generate_signature(api_secret: str, message: str) -> str:
-    return hmac.new(
-        api_secret.encode('utf-8'),
-        message.encode('utf-8'),
-        hashlib.sha256
-    ).hexdigest()
+CACHE_TTL = 60
+_cache: Dict[str, tuple] = {}
 
-def prepare_payload(data: Dict[str, Any]) -> Dict[str, Any]:
-    timestamp = int(time.time() * 1000)
-    payload = {**data, 'timestamp': timestamp}
-    return payload
+def memoize_crypto_data(func: Callable) -> Callable:
+    @functools.wraps(func)
+    def wrapper(*args, **kwargs) -> Any:
+        key = f"{func.__name__}:{args}:{kwargs}"
+        now = time.monotonic()
+        if key in _cache:
+            val, timestamp = _cache[key]
+            if now - timestamp < CACHE_TTL:
+                return val
+        result = func(*args, **kwargs)
+        _cache[key] = (result, now)
+        return result
+    return wrapper
 
-def validate_response_status(status_code: int) -> bool:
-    return 200 <= status_code < 300
+class DataHandler:
+    def __init__(self, engine: Any) -> None:
+        self.engine = engine
 
-def format_crypto_price(price: float, precision: int = 8) -> str:
-    return f"{price:.{precision}f}"
+    @memoize_crypto_data
+    def fetch_market_state(self, pair: str) -> Dict[str, float]:
+        data = self.engine.get_raw_data(pair)
+        return {
+            "price": float(data.get("p", 0)),
+            "vol": float(data.get("v", 0)),
+            "ts": time.time()
+        }
 
-def sanitize_order_params(params: Dict[str, Any]) -> Dict[str, Any]:
-    return {k: v for k, v in params.items() if v is not None}
+    def clear_cache(self) -> None:
+        _cache.clear()
