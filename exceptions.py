@@ -1,23 +1,17 @@
-import time
-import functools
-from typing import Callable, Any, Type, Tuple
+class AbsolutegarError(Exception):
+    """Base exception for absolutegar-utils."""
 
-class NetworkRetryError(Exception):
-    """Exception raised for network operation retries."""
+class DataValidationError(AbsolutegarError):
+    """Raised when input data fails schema validation."""
 
-def retry(exceptions: Tuple[Type[Exception], ...] = (Exception,), 
-          retries: int = 3, 
-          delay: float = 1.0) -> Callable:
-    def decorator(func: Callable) -> Callable:
-        @functools.wraps(func)
-        def wrapper(*args: Any, **kwargs: Any) -> Any:
-            last_exception = None
-            for i in range(retries):
-                try:
-                    return func(*args, **kwargs)
-                except exceptions as e:
-                    last_exception = e
-                    time.sleep(delay * (2 ** i))
-            raise NetworkRetryError(f"Max retries {retries} reached") from last_exception
-        return wrapper
-    return decorator
+class CryptoProviderError(AbsolutegarError):
+    """Raised when external crypto API communication fails."""
+
+class RateLimitExceededError(AbsolutegarError):
+    """Raised when API rate limits are breached."""
+
+class InsufficientFundsError(AbsolutegarError):
+    """Raised when balance is inadequate for operations."""
+
+class ConfigurationError(AbsolutegarError):
+    """Raised when environment configuration is invalid."""
