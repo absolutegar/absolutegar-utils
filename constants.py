@@ -1,26 +1,26 @@
 from typing import Final
 
 # Network identifiers
-MAINNET_ID: Final[str] = "0x1"
-TESTNET_ID: Final[str] = "0xaa36a7"
+MAINNET_ID: Final[str] = 'mainnet'
+TESTNET_ID: Final[str] = 'testnet'
 
-# Transaction defaults
-DEFAULT_GAS_LIMIT: Final[int] = 21000
+# Precision settings
+SATOSHI_UNIT: Final[int] = 100_000_000
+WEI_UNIT: Final[int] = 10**18
+
+# Timeouts and intervals
+DEFAULT_TIMEOUT: Final[float] = 30.0
+RETRY_DELAY: Final[float] = 2.0
 MAX_RETRIES: Final[int] = 3
-TIMEOUT_SECONDS: Final[int] = 30
 
-# API endpoints
-INFURA_BASE_URL: Final[str] = "https://mainnet.infura.io/v3/"
-ALCHEMY_BASE_URL: Final[str] = "https://eth-mainnet.g.alchemy.com/v2/"
+# Regex patterns
+ADDRESS_PATTERN_BTC: Final[str] = r'^[13][a-km-zA-HJ-NP-Z1-9]{25,34}$'
+ADDRESS_PATTERN_ETH: Final[str] = r'^0x[a-fA-F0-9]{40}$'
 
-# Crypto currency constants
-WEI_PER_ETHER: Final[int] = 10**18
-GWEI_PER_ETHER: Final[int] = 10**9
-
-# Error messages
-ERR_CONNECTION_FAILED: Final[str] = "network connection failed"
-ERR_INVALID_ADDRESS: Final[str] = "provided address format is invalid"
-ERR_INSUFFICIENT_FUNDS: Final[str] = "account balance too low for operation"
-
-# Supported protocols
-PROTOCOLS: Final[list[str]] = ["erc20", "erc721", "erc1155"]
+# Default headers
+USER_AGENT: Final[str] = 'absolutegar-utils/1.0.0'
+HEADERS: Final[dict[str, str]] = {
+    'User-Agent': USER_AGENT,
+    'Content-Type': 'application/json',
+    'Accept': 'application/json'
+}
