@@ -1,33 +1,34 @@
-from typing import List, Dict, Optional
 import hashlib
 import hmac
+import time
+from typing import Dict, Any
+
 
 def generate_signature(api_secret: str, message: str) -> str:
-    """Generate HMAC-SHA256 signature for crypto API requests."""
     return hmac.new(
         api_secret.encode('utf-8'),
         message.encode('utf-8'),
         hashlib.sha256
     ).hexdigest()
 
-def sanitize_order_data(data: Dict[str, str]) -> Dict[str, str]:
-    """Remove whitespace and normalize dictionary values."""
-    return {k: str(v).strip() for k, v in data.items()}
 
-def format_price(amount: float, precision: int = 8) -> str:
-    """Format crypto price to specific decimal precision."""
-    return f"{amount:.{precision}f}"
-
-def validate_ticker(ticker: str, supported: List[str]) -> bool:
-    """Check if ticker is in supported trading pairs."""
-    return ticker.upper() in [t.upper() for t in supported]
-
-def parse_order_response(response: Dict[str, any]) -> Optional[Dict[str, any]]:
-    """Extract essential order fields from API response."""
-    if "order_id" not in response:
-        return None
+def format_order_payload(symbol: str, side: str, amount: float, price: float) -> Dict[str, Any]:
     return {
-        "id": response.get("order_id"),
-        "status": response.get("status", "unknown"),
-        "symbol": response.get("symbol")
+        'symbol': symbol.upper(),
+        'side': side.lower(),
+        'quantity': str(amount),
+        'price': str(price),
+        'timestamp': int(time.time() * 1000)
     }
+
+
+def validate_ticker(ticker: str) -> bool:
+    if not isinstance(ticker, str) or len(ticker) < 2:
+        return False
+    return ticker.isalnum()
+
+
+def parse_raw_response(data: Dict[str, Any]) -> Dict[str, Any]:
+    if 'error' in data:
+        raise ValueError(f"api error: {data.get('message')}")
+    return data.get('result', {})
