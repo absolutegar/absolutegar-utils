@@ -2,24 +2,31 @@ import json
 import os
 from typing import Any, Dict
 
+DEFAULT_CONFIG = {
+    "rpc_url": "https://mainnet.infura.io/v3/",
+    "timeout": 30,
+    "retry_limit": 3,
+    "fee_buffer": 0.001
+}
+
 class ConfigLoader:
-    def __init__(self, defaults: Dict[str, Any], config_path: str = "config.json"):
-        self.defaults = defaults
-        self.config_path = config_path
-        self.config = self._load()
+    def __init__(self, path: str = "config.json"):
+        self.path = path
+        self.data = self._load()
 
     def _load(self) -> Dict[str, Any]:
-        if not os.path.exists(self.config_path):
-            return self.defaults
-        try:
-            with open(self.config_path, "r") as f:
+        if not os.path.exists(self.path):
+            return DEFAULT_CONFIG
+        with open(self.path, "r") as f:
+            try:
                 user_config = json.load(f)
-            return {**self.defaults, **user_config}
-        except (json.JSONDecodeError, IOError):
-            return self.defaults
+                return {**DEFAULT_CONFIG, **user_config}
+            except json.JSONDecodeError:
+                return DEFAULT_CONFIG
 
     def get(self, key: str, default: Any = None) -> Any:
-        return self.config.get(key, default)
+        return self.data.get(key, default)
 
-    def __getitem__(self, key: str) -> Any:
-        return self.config[key]
+    @property
+    def all(self) -> Dict[str, Any]:
+        return self.data.copy()
