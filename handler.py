@@ -1,36 +1,33 @@
 import functools
-import time
 from typing import Callable, Any, Dict
 
-CACHE_TTL = 60
-_cache: Dict[str, tuple] = {}
+CACHE_SIZE = 1024
 
-def memoize_crypto_data(func: Callable) -> Callable:
-    @functools.wraps(func)
-    def wrapper(*args, **kwargs) -> Any:
-        key = f"{func.__name__}:{args}:{kwargs}"
-        now = time.monotonic()
-        if key in _cache:
-            val, timestamp = _cache[key]
-            if now - timestamp < CACHE_TTL:
-                return val
-        result = func(*args, **kwargs)
-        _cache[key] = (result, now)
-        return result
-    return wrapper
+class CryptoHandler:
+    def __init__(self) -> None:
+        self._memo: Dict[tuple, Any] = {}
 
-class DataHandler:
-    def __init__(self, engine: Any) -> None:
-        self.engine = engine
+    @staticmethod
+    def fast_compute(func: Callable) -> Callable:
+        cache: Dict[tuple, Any] = {}
 
-    @memoize_crypto_data
-    def fetch_market_state(self, pair: str) -> Dict[str, float]:
-        data = self.engine.get_raw_data(pair)
-        return {
-            "price": float(data.get("p", 0)),
-            "vol": float(data.get("v", 0)),
-            "ts": time.time()
-        }
+        @functools.wraps(func)
+        def wrapper(*args: Any, **kwargs: Any) -> Any:
+            key = (args, frozenset(kwargs.items()))
+            if key not in cache:
+                if len(cache) >= CACHE_SIZE:
+                    cache.clear()
+                cache[key] = func(*args, **kwargs)
+            return cache[key]
+        return wrapper
 
-    def clear_cache(self) -> None:
-        _cache.clear()
+    @fast_compute
+    def derive_hash(self, data: bytes, salt: bytes) -> bytes:
+        import hashlib
+        return hashlib.pbkdf2_hmac('sha256', data, salt, 10000)
+
+    def batch_process(self, tasks: list) -> list:
+        return [self.derive_hash(t[0], t[1]) for t in tasks]
+
+def optimize_handler() -> CryptoHandler:
+    return CryptoHandler()
