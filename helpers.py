@@ -1,32 +1,25 @@
 import hashlib
 import hmac
-from typing import Dict, Any
+from decimal import Decimal
+from typing import Any
 
-
-def generate_signature(api_secret: str, payload: str) -> str:
+def generate_signature(api_secret: str, message: str) -> str:
     return hmac.new(
         api_secret.encode('utf-8'),
-        payload.encode('utf-8'),
+        message.encode('utf-8'),
         hashlib.sha256
     ).hexdigest()
 
-
-def format_order_params(params: Dict[str, Any]) -> str:
-    return '&'.join(f"{k}={v}" for k, v in sorted(params.items()))
-
-
-def parse_crypto_amount(amount: str) -> float:
-    try:
-        return float(amount)
-    except ValueError:
-        return 0.0
-
+def format_crypto_amount(amount: Any, precision: int = 8) -> Decimal:
+    return Decimal(str(amount)).quantize(Decimal(f'1.{"0" * precision}'))
 
 def validate_ticker(ticker: str) -> bool:
-    if not isinstance(ticker, str) or len(ticker) < 2:
-        return False
-    return ticker.isalnum()
+    return bool(ticker and ticker.isalnum() and len(ticker) <= 10)
 
+def calculate_profit_margin(buy_price: float, sell_price: float) -> float:
+    if buy_price <= 0:
+        return 0.0
+    return ((sell_price - buy_price) / buy_price) * 100
 
-def sanitize_response(data: Dict[str, Any]) -> Dict[str, Any]:
-    return {k: v for k, v in data.items() if v is not None}
+def parse_order_id(raw_id: Any) -> str:
+    return str(raw_id).strip().upper()
