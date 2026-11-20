@@ -1,34 +1,35 @@
 import hashlib
 import hmac
 import time
-from typing import Dict, Any
+from typing import Any, Dict, Optional
 
 
-def generate_signature(api_secret: str, message: str) -> str:
-    return hmac.new(
-        api_secret.encode('utf-8'),
-        message.encode('utf-8'),
-        hashlib.sha256
-    ).hexdigest()
+class CryptoUtils:
+    @staticmethod
+    def generate_signature(api_secret: str, message: str) -> str:
+        return hmac.new(
+            api_secret.encode('utf-8'),
+            message.encode('utf-8'),
+            hashlib.sha256
+        ).hexdigest()
+
+    @staticmethod
+    def format_order_params(params: Dict[str, Any]) -> str:
+        sorted_keys = sorted(params.keys())
+        return '&'.join([f"{k}={params[k]}" for k in sorted_keys])
+
+    @staticmethod
+    def get_timestamp() -> int:
+        return int(time.time() * 1000)
+
+    @staticmethod
+    def validate_price_precision(price: float, tick_size: float) -> bool:
+        if tick_size <= 0:
+            return False
+        return (price / tick_size).is_integer()
 
 
-def format_order_payload(symbol: str, side: str, amount: float, price: float) -> Dict[str, Any]:
-    return {
-        'symbol': symbol.upper(),
-        'side': side.lower(),
-        'quantity': str(amount),
-        'price': str(price),
-        'timestamp': int(time.time() * 1000)
-    }
-
-
-def validate_ticker(ticker: str) -> bool:
-    if not isinstance(ticker, str) or len(ticker) < 2:
-        return False
-    return ticker.isalnum()
-
-
-def parse_raw_response(data: Dict[str, Any]) -> Dict[str, Any]:
-    if 'error' in data:
-        raise ValueError(f"api error: {data.get('message')}")
-    return data.get('result', {})
+def calculate_account_leverage(margin: float, balance: float) -> float:
+    if balance == 0:
+        return 0.0
+    return round(margin / balance, 4)
