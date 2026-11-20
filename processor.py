@@ -1,31 +1,20 @@
+import hashlib
 from typing import List, Dict, Any
-import logging
-
-logger = logging.getLogger(__name__)
 
 class DataProcessor:
-    def __init__(self, settings: Dict[str, Any]):
-        self.settings = settings
+    def __init__(self, salt: str = "absolutegar"):
+        self.salt = salt
 
-    def clean_transaction_data(self, data: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
-        return [self._normalize(item) for item in data if self._is_valid(item)]
+    def sanitize(self, data: Dict[str, Any]) -> Dict[str, Any]:
+        return {k: str(v).strip() for k, v in data.items() if v is not None}
 
-    def _is_valid(self, item: Dict[str, Any]) -> bool:
-        required = {'txid', 'amount', 'address'}
-        return all(key in item for key in required)
+    def compute_hash(self, payload: str) -> str:
+        return hashlib.sha256(f"{payload}{self.salt}".encode()).hexdigest()
 
-    def _normalize(self, item: Dict[str, Any]) -> Dict[str, Any]:
-        return {
-            'txid': str(item['txid']),
-            'amount': float(item['amount']),
-            'address': item['address'].lower(),
-            'processed': True
-        }
+    def process_batch(self, items: List[Dict[str, Any]]) -> List[str]:
+        sanitized = [self.sanitize(i) for i in items]
+        return [self.compute_hash(str(item.values())) for item in sanitized]
 
-def process_crypto_batch(items: List[Dict[str, Any]], cfg: Dict[str, Any]) -> List[Dict[str, Any]]:
-    processor = DataProcessor(cfg)
-    try:
-        return processor.clean_transaction_data(items)
-    except Exception as e:
-        logger.error(f'batch processing failure: {e}')
-        return []
+    @staticmethod
+    def validate_keys(data: Dict[str, Any], required: List[str]) -> bool:
+        return all(key in data for key in required)
