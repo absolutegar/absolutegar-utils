@@ -1,26 +1,27 @@
 from typing import Final
 
-# Network identifiers
-MAINNET_ID: Final[str] = 'mainnet'
-TESTNET_ID: Final[str] = 'testnet'
+# Network constants
+MAINNET_CHAIN_ID: Final[int] = 1
+TESTNET_CHAIN_ID: Final[int] = 11155111
+
+# Transaction defaults
+GAS_LIMIT_DEFAULT: Final[int] = 21000
+MAX_RETRIES: Final[int] = 3
+TIMEOUT_SECONDS: Final[int] = 30
+
+# Crypto asset identifiers
+BTC_SYMBOL: Final[str] = "BTC"
+ETH_SYMBOL: Final[str] = "ETH"
 
 # Precision settings
-SATOSHI_UNIT: Final[int] = 100_000_000
-WEI_UNIT: Final[int] = 10**18
+WEI_PER_ETHER: Final[int] = 10**18
+SATOSHI_PER_BTC: Final[int] = 10**8
 
-# Timeouts and intervals
-DEFAULT_TIMEOUT: Final[float] = 30.0
-RETRY_DELAY: Final[float] = 2.0
-MAX_RETRIES: Final[int] = 3
+# Error messages
+ERR_CONNECTION_FAILED: Final[str] = "failed to connect to node"
+ERR_INVALID_ADDRESS: Final[str] = "invalid wallet address format"
+ERR_INSUFFICIENT_FUNDS: Final[str] = "insufficient balance for transaction"
 
-# Regex patterns
-ADDRESS_PATTERN_BTC: Final[str] = r'^[13][a-km-zA-HJ-NP-Z1-9]{25,34}$'
-ADDRESS_PATTERN_ETH: Final[str] = r'^0x[a-fA-F0-9]{40}$'
-
-# Default headers
-USER_AGENT: Final[str] = 'absolutegar-utils/1.0.0'
-HEADERS: Final[dict[str, str]] = {
-    'User-Agent': USER_AGENT,
-    'Content-Type': 'application/json',
-    'Accept': 'application/json'
-}
+# Configuration paths
+DEFAULT_CONFIG_PATH: Final[str] = "./config/settings.json"
+LOG_DIR: Final[str] = "./logs"
