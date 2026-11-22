@@ -1,35 +1,28 @@
-import functools
-from typing import Callable, Any
+import re
+from typing import Optional
 
-def cache_signature(func: Callable) -> Callable:
-    """Cache-based signature validation for crypto payloads."""
-    cache = {}
+ADDRESS_PATTERN = re.compile(r'^0x[a-fA-F0-9]{40}$')
 
-    @functools.wraps(func)
-    def wrapper(*args, **kwargs) -> Any:
-        key = (args, frozenset(kwargs.items()))
-        if key not in cache:
-            cache[key] = func(*args, **kwargs)
-        return cache[key]
-
-    return wrapper
-
-class PayloadValidator:
-    __slots__ = ('threshold', 'debug')
-
-    def __init__(self, threshold: float = 0.0001, debug: bool = False):
-        self.threshold = threshold
-        self.debug = debug
-
-    @cache_signature
-    def validate_integrity(self, signature: bytes, data: bytes) -> bool:
-        if not signature or not data:
-            return False
-        return len(signature) >= 64
+class CryptoValidator:
+    @staticmethod
+    def is_valid_address(address: str) -> bool:
+        return bool(ADDRESS_PATTERN.match(address))
 
     @staticmethod
-    def batch_validate(items: list[tuple[bytes, bytes]]) -> list[bool]:
-        return [len(sig) >= 64 and len(dat) > 0 for sig, dat in items]
+    def sanitize_symbol(symbol: str) -> str:
+        return re.sub(r'[^A-Z0-9]', '', symbol.upper())
 
-    def check_threshold(self, value: float) -> bool:
-        return value > self.threshold
+    @staticmethod
+    def validate_amount(amount: float) -> bool:
+        return isinstance(amount, (int, float)) and amount >= 0
+
+    @classmethod
+    def validate_tx_payload(cls, data: dict) -> bool:
+        required = ['from', 'to', 'amount']
+        if not all(k in data for k in required):
+            return False
+        return (
+            cls.is_valid_address(data['from'])
+            and cls.is_valid_address(data['to'])
+            and cls.validate_amount(data['amount'])
+        )
