@@ -1,33 +1,31 @@
-import functools
-from typing import Callable, Any, Dict
+import logging
+from typing import Any, Optional
 
-CACHE_SIZE = 1024
+class CryptoTransactionError(Exception):
+    """Base exception for absolutegar-utils crypto operations."""
 
-class CryptoHandler:
-    def __init__(self) -> None:
-        self._memo: Dict[tuple, Any] = {}
+class TransactionHandler:
+    def __init__(self, logger: logging.Logger):
+        self.logger = logger
 
-    @staticmethod
-    def fast_compute(func: Callable) -> Callable:
-        cache: Dict[tuple, Any] = {}
+    def process_payload(self, data: Optional[dict]) -> Any:
+        try:
+            if not data:
+                raise ValueError("empty transaction payload")
+            
+            if "signature" not in data:
+                raise KeyError("missing mandatory signature field")
+                
+            return self._execute_transfer(data)
+            
+        except (ValueError, KeyError) as e:
+            self.logger.error(f"validation error: {e}")
+            raise CryptoTransactionError(f"invalid payload structure: {e}") from e
+        except Exception as e:
+            self.logger.critical(f"unexpected system fault: {e}")
+            raise CryptoTransactionError("internal processing failure") from e
 
-        @functools.wraps(func)
-        def wrapper(*args: Any, **kwargs: Any) -> Any:
-            key = (args, frozenset(kwargs.items()))
-            if key not in cache:
-                if len(cache) >= CACHE_SIZE:
-                    cache.clear()
-                cache[key] = func(*args, **kwargs)
-            return cache[key]
-        return wrapper
-
-    @fast_compute
-    def derive_hash(self, data: bytes, salt: bytes) -> bytes:
-        import hashlib
-        return hashlib.pbkdf2_hmac('sha256', data, salt, 10000)
-
-    def batch_process(self, tasks: list) -> list:
-        return [self.derive_hash(t[0], t[1]) for t in tasks]
-
-def optimize_handler() -> CryptoHandler:
-    return CryptoHandler()
+    def _execute_transfer(self, data: dict) -> bool:
+        if not isinstance(data.get("amount"), (int, float)) or data["amount"] <= 0:
+            raise ValueError("invalid transaction amount")
+        return True
