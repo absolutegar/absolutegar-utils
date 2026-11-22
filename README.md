@@ -1,47 +1,48 @@
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-
 # absolutegar-utils
 
-`absolutegar-utils` is a high-performance Python toolkit engineered for low-latency cryptocurrency algorithmic trading, Web3 payload construction, and exchange data normalization. Built for quantitative traders and MEV searchers, it streamlines cross-venue market data ingestion and EVM transaction assembly.
+A collection of high-performance Python utilities designed for cryptocurrency market data analysis and automated execution. This library streamlines integration with exchange APIs while providing robust tools for local data processing and technical signal generation.
 
 ## Features
 
-- **Cross-Venue Book Normalizer:** Ingests raw WebSocket order book snapshots from CEXs (Binance, Bybit) and DEXs (Uniswap V3, Curve) into structured NumPy arrays.
-- **Optimized ABI Encoder:** Provides fast EVM payload construction and method selector computation with lower overhead than standard Web3 bindings.
-- **Dynamic Fee Estimator:** Calculates optimal EIP-1559 base and priority fees using real-time block telemetry and sliding-window percentiles.
-- **EIP-712 Signature Tools:** Simplifies signing, hashing, and validating typed structured data for decentralized exchange orders.
+*   **Async Exchange Adapters:** Unified asynchronous wrappers for major crypto exchanges, supporting REST and WebSocket streams with automatic rate-limit handling.
+*   **Vectorized Technical Indicators:** Optimized calculation of common trading indicators (RSI, Bollinger Bands, MACD) leveraging `pandas` and `numpy` for speed.
+*   **Portfolio Reconciliation:** Automated utilities to track multi-exchange balances and calculate unrealized PnL in real-time.
+*   **Signed Request Signing:** Secure, production-ready HMAC-SHA256 signature generators for private API endpoint authentication.
 
 ## Installation
 
-Install the latest release via `pip`:
+Install the latest version directly via pip:
 
 ```bash
 pip install absolutegar-utils
 ```
 
-Or build directly from the source repository:
+For local development and testing:
 
 ```bash
-git clone https://github.com/Developer/absolutegar-utils.git
+git clone https://github.com/developer/absolutegar-utils.git
 cd absolutegar-utils
-pip install .
+pip install -r requirements.txt
 ```
 
 ## Basic Usage
 
-The following example demonstrates how to estimate optimal EIP-1559 gas fees and parse a normalized order book snapshot:
+The following example demonstrates how to initialize a secure client and fetch the latest ticker price for a trading pair:
 
 ```python
-from absolutegar_utils import FeeEstimator, OrderBookParser
+from absolutegar_utils.client import ExchangeClient
 
-# Calculate priority and max fees for EVM transactions
-estimator = FeeEstimator(rpc_url="https://eth-mainnet.g.alchemy.com/v2/demo")
-suggested_fees = estimator.get_optimal_fees(target_percentile=75)
+# Initialize client with environment variables
+client = ExchangeClient(api_key='YOUR_KEY', api_secret='YOUR_SECRET')
 
-print(f"Base Fee: {suggested_fees.base_fee_gwei:.2f} Gwei")
-print(f"Priority Fee: {suggested_fees.priority_fee_gwei:.2f} Gwei")
+# Fetch real-time ticker data
+ticker = client.get_ticker("BTC/USDT")
 
-# Normalize raw exchange payload
-raw_data = {
-    "bids": [["65000.50", "1.2"], ["64999.00", "0.5"]],
-    "asks": [["65001.00", "0.8"], ["65002.
+print(f"Current Price: {ticker['last_price']}")
+```
+
+## License
+
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+
+Distributed under the MIT License. See `LICENSE` for more information.
