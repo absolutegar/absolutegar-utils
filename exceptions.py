@@ -1,27 +1,26 @@
-class AbsolutegarError(Exception):
+class AbsoluteGarError(Exception):
     """Base exception for absolutegar-utils."""
 
-class CryptoTransactionError(AbsolutegarError):
-    """Raised when transaction execution fails."""
 
-class InsufficientBalanceError(CryptoTransactionError):
-    """Raised when wallet funds are insufficient."""
+class ConfigurationError(AbsoluteGarError):
+    """Raised on invalid environment configuration."""
 
-class InvalidSignatureError(CryptoTransactionError):
-    """Raised during cryptographic verification failures."""
 
-class NetworkTimeoutError(AbsolutegarError):
-    """Raised on RPC or node communication timeouts."""
+class ConnectionError(AbsoluteGarError):
+    """Raised on crypto node connection failures."""
 
-class RateLimitExceededError(AbsolutegarError):
-    """Raised when API requests exceed threshold."""
 
-class ConfigValidationError(AbsolutegarError):
-    """Raised for malformed environment or config keys."""
+class ValidationError(AbsoluteGarError):
+    """Raised on invalid payload data."""
 
-def handle_crypto_exception(e: Exception) -> None:
-    if isinstance(e, InsufficientBalanceError):
-        raise ValueError("Action aborted: balance too low") from e
-    if isinstance(e, NetworkTimeoutError):
-        raise ConnectionError("Node connection unstable") from e
-    raise e
+
+class SigningError(AbsoluteGarError):
+    """Raised during transaction signing process."""
+
+
+class RateLimitError(AbsoluteGarError):
+    """Raised when API rate limits exceeded."""
+
+
+class TimeoutError(AbsoluteGarError):
+    """Raised when network operations exceed limits."""
