@@ -1,20 +1,31 @@
-import hashlib
+from functools import lru_cache
 from typing import List, Dict, Any
+import math
 
 class DataProcessor:
-    def __init__(self, salt: str = "absolutegar"):
-        self.salt = salt
+    def __init__(self, precision: int = 8):
+        self.precision = precision
+        self.factor = 10**precision
 
-    def sanitize(self, data: Dict[str, Any]) -> Dict[str, Any]:
-        return {k: str(v).strip() for k, v in data.items() if v is not None}
+    @lru_cache(maxsize=1024)
+    def normalize_value(self, value: float) -> int:
+        return int(math.floor(value * self.factor))
 
-    def compute_hash(self, payload: str) -> str:
-        return hashlib.sha256(f"{payload}{self.salt}".encode()).hexdigest()
+    def process_batch(self, data: List[Dict[str, float]]) -> List[Dict[str, int]]:
+        return [
+            {
+                "id": item["id"],
+                "val": self.normalize_value(item["price"])
+            }
+            for item in data
+        ]
 
-    def process_batch(self, items: List[Dict[str, Any]]) -> List[str]:
-        sanitized = [self.sanitize(i) for i in items]
-        return [self.compute_hash(str(item.values())) for item in sanitized]
-
-    @staticmethod
-    def validate_keys(data: Dict[str, Any], required: List[str]) -> bool:
-        return all(key in data for key in required)
+    def calculate_weighted_average(self, values: List[float], weights: List[float]) -> float:
+        if len(values) != len(weights):
+            raise ValueError("mismatch in sequence lengths")
+        
+        total_weight = sum(weights)
+        if total_weight == 0:
+            return 0.0
+            
+        return sum(v * w for v, w in zip(values, weights)) / total_weight
