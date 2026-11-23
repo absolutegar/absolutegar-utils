@@ -1,27 +1,34 @@
-from typing import Final
+from typing import Final, Dict, List
 
-# Network constants
-MAINNET_CHAIN_ID: Final[int] = 1
-TESTNET_CHAIN_ID: Final[int] = 11155111
+# Network identifiers
+MAINNET: Final[str] = "mainnet"
+TESTNET: Final[str] = "testnet"
 
-# Transaction defaults
-GAS_LIMIT_DEFAULT: Final[int] = 21000
-MAX_RETRIES: Final[int] = 3
-TIMEOUT_SECONDS: Final[int] = 30
+# Supported precision configurations
+DEFAULT_PRECISION: Final[int] = 8
+MAX_DECIMAL_PLACES: Final[int] = 18
 
-# Crypto asset identifiers
-BTC_SYMBOL: Final[str] = "BTC"
-ETH_SYMBOL: Final[str] = "ETH"
+# Asset classification mappings
+ASSET_TYPES: Final[Dict[str, str]] = {
+    "BTC": "native",
+    "ETH": "native",
+    "ERC20": "token",
+    "BEP20": "token"
+}
 
-# Precision settings
-WEI_PER_ETHER: Final[int] = 10**18
-SATOSHI_PER_BTC: Final[int] = 10**8
+# Standardized API response status codes
+STATUS_SUCCESS: Final[int] = 200
+STATUS_BAD_REQUEST: Final[int] = 400
+STATUS_UNAUTHORIZED: Final[int] = 401
+STATUS_RATE_LIMIT: Final[int] = 429
 
-# Error messages
-ERR_CONNECTION_FAILED: Final[str] = "failed to connect to node"
-ERR_INVALID_ADDRESS: Final[str] = "invalid wallet address format"
-ERR_INSUFFICIENT_FUNDS: Final[str] = "insufficient balance for transaction"
+# Gas estimation parameters
+MIN_GAS_LIMIT: Final[int] = 21000
+DEFAULT_GAS_MULTIPLIER: Final[float] = 1.2
 
-# Configuration paths
-DEFAULT_CONFIG_PATH: Final[str] = "./config/settings.json"
-LOG_DIR: Final[str] = "./logs"
+# Supported network list
+SUPPORTED_NETWORKS: Final[List[str]] = [MAINNET, TESTNET]
+
+# Validation constraints
+MIN_ADDRESS_LENGTH: Final[int] = 26
+MAX_ADDRESS_LENGTH: Final[int] = 66
