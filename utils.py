@@ -1,29 +1,26 @@
 import hashlib
 import hmac
-from functools import lru_cache
+import time
 from typing import Dict, Any
 
-@lru_cache(maxsize=1024)
-def compute_signature(secret: str, message: str) -> str:
+def generate_signature(api_secret: str, message: str) -> str:
     return hmac.new(
-        secret.encode(),
-        message.encode(),
+        api_secret.encode('utf-8'),
+        message.encode('utf-8'),
         hashlib.sha256
     ).hexdigest()
 
-def batch_process_signatures(secret: str, payloads: tuple) -> list:
-    return [compute_signature(secret, p) for p in payloads]
+def get_timestamp() -> int:
+    return int(time.time() * 1000)
 
-class CacheProcessor:
-    def __init__(self, data: Dict[str, Any]):
-        self._data = data
+def sanitize_params(params: Dict[str, Any]) -> Dict[str, Any]:
+    return {k: v for k, v in params.items() if v is not None}
 
-    def get_optimized_value(self, key: str) -> Any:
-        return self._data.get(key)
+class CryptoFormatter:
+    @staticmethod
+    def format_amount(amount: float, precision: int = 8) -> str:
+        return f"{amount:.{precision}f}"
 
     @staticmethod
-    def fast_hash(data: str) -> int:
-        return hash(data) & 0xffffffff
-
-def clean_nones(d: Dict[str, Any]) -> Dict[str, Any]:
-    return {k: v for k, v in d.items() if v is not None}
+    def validate_pair(pair: str) -> bool:
+        return isinstance(pair, str) and "_" in pair
