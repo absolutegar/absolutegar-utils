@@ -1,67 +1,68 @@
-from decimal import Decimal, InvalidOperation
-from typing import Any, Dict, Union
+from dataclasses import dataclass
+from typing import Dict, List
 
 
-class CryptoProcessingError(Exception):
-    pass
+@dataclass(slots=True)
+class Tick:
+    timestamp: float
+    price: float
+    volume: float
 
 
-class InvalidTransactionError(CryptoProcessingError):
-    pass
+@dataclass(slots=True)
+class Candle:
+    timestamp: int
+    open: float
+    high: float
+    low: float
+    close: float
+    volume: float
 
 
-class ValueOverflowError(CryptoProcessingError):
-    pass
+class BatchProcessor:
+    def __init__(self, interval_seconds: int = 60) -> None:
+        self.interval = interval_seconds
+        self._buffers: Dict[str, List[Tick]] = {}
 
+    def add_tick(self, symbol: str, timestamp: float, price: float, volume: float) -> None:
+        if symbol not in self._buffers:
+            self._buffers[symbol] = []
+        self._buffers[symbol].append(Tick(timestamp, price, volume))
 
-class TransactionProcessor:
-    MAX_WEI = Decimal("115792089237316195423570985008687907853269984665640564039457584007913129639935")
+    def process_symbol(self, symbol: str) -> List[Candle]:
+        ticks = self._buffers.get(symbol, [])
+        if not ticks:
+            return []
 
-    def parse_wei_amount(self, raw_value: Union[str, int, float, Decimal]) -> Decimal:
-        try:
-            val = Decimal(str(raw_value))
-        except (InvalidOperation, TypeError, ValueError) as exc:
-            raise InvalidTransactionError(f"Cannot parse value '{raw_value}' into Decimal") from exc
+        ticks.sort(key=lambda t: t.timestamp)
+        candles: List[Candle] = []
+        current_bucket: int | None = None
+        c_open = c_high = c_low = c_close = c_vol = 0.0
 
-        if val < 0:
-            raise InvalidTransactionError(f"Transaction amount cannot be negative: {val}")
+        for tick in ticks:
+            bucket = int(tick.timestamp // self.interval) * self.interval
+            if current_bucket is None:
+                current_bucket = bucket
+                c_open = c_high = c_low = c_close = tick.price
+                c_vol = tick.volume
+            elif bucket == current_bucket:
+                if tick.price > c_high:
+                    c_high = tick.price
+                elif tick.price < c_low:
+                    c_low = tick.price
+                c_close = tick.price
+                c_vol += tick.volume
+            else:
+                candles.append(Candle(current_bucket, c_open, c_high, c_low, c_close, c_vol))
+                current_bucket = bucket
+                c_open = c_high = c_low = c_close = tick.price
+                c_vol = tick.volume
 
-        if val > self.MAX_WEI:
-            raise ValueOverflowError(f"Value {val} exceeds 256-bit unsigned integer maximum")
+        if current_bucket is not None:
+            candles.append(Candle(current_bucket, c_open, c_high, c_low, c_close, c_vol))
 
-        if val.as_tuple().exponent < 0:
-            raise InvalidTransactionError(f"Fractional Wei values are not allowed: {val}")
+        self._buffers[symbol].clear()
+        return candles
 
-        return val
-
-    def decode_hex_data(self, hex_str: str) -> bytes:
-        if not isinstance(hex_str, str):
-            raise InvalidTransactionError("Hex payload must be a string")
-
-        clean_str = hex_str[2:] if hex_str.startswith("0x") else hex_str
-        if len(clean_str) % 2 != 0:
-            clean_str = "0" + clean_str
-
-        try:
-            return bytes.fromhex(clean_str)
-        except ValueError as exc:
-            raise InvalidTransactionError(f"Malformed hex string: {hex_str}") from exc
-
-    def process_transaction(self, tx_payload: Dict[str, Any]) -> Dict[str, Any]:
-        if not isinstance(tx_payload, dict):
-            raise InvalidTransactionError("Payload must be a dictionary")
-
-        required_fields = ("to", "value", "data")
-        for field in required_fields:
-            if field not in tx_payload:
-                raise InvalidTransactionError(f"Missing required field: '{field}'")
-
-        parsed_value = self.parse_wei_amount(tx_payload["value"])
-        decoded_data = self.decode_hex_data(tx_payload.get("data", ""))
-
-        return {
-            "to": str(tx_payload["to"]).lower(),
-            "value_wei": int(parsed_value),
-            "data_bytes": decoded_data,
-            "is_contract_call": len(decoded_data) > 0,
-        }
+    def clear(self) -> None:
+        self._buffers.clear()
