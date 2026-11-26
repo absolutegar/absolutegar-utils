@@ -1,59 +1,27 @@
-import hashlib
-import hmac
-from typing import Dict, List, Tuple
+from decimal import Decimal, ROUND_HALF_UP
+from typing import Union, Dict
 
+def normalize_amount(amount: Union[str, float, Decimal], precision: int = 8) -> Decimal:
+    """Format crypto values to standard decimal precision."""
+    val = Decimal(str(amount))
+    return val.quantize(Decimal(f'1.{"0" * precision}'), rounding=ROUND_HALF_UP)
 
-class FastOrderBook:
-    __slots__ = ("_bids", "_asks", "_bid_cache", "_ask_cache")
+def calculate_fee(amount: Decimal, rate: Decimal) -> Decimal:
+    """Compute transaction fee from decimal amounts."""
+    return (amount * rate).quantize(Decimal('0.00000001'), rounding=ROUND_HALF_UP)
 
-    def __init__(self) -> None:
-        self._bids: Dict[float, float] = {}
-        self._asks: Dict[float, float] = {}
-        self._bid_cache: List[Tuple[float, float]] = []
-        self._ask_cache: List[Tuple[float, float]] = []
+def format_orderbook(data: Dict) -> Dict:
+    """Standardize exchange orderbook keys to floats."""
+    return {
+        'bids': [[float(p), float(a)] for p, a in data.get('bids', [])],
+        'asks': [[float(p), float(a)] for p, a in data.get('asks', [])]
+    }
 
-    def update_depth(
-        self, bids: List[Tuple[float, float]], asks: List[Tuple[float, float]]
-    ) -> None:
-        for price, qty in bids:
-            if qty == 0.0:
-                self._bids.pop(price, None)
-            else:
-                self._bids[price] = qty
+class CryptoConverter:
+    @staticmethod
+    def to_base_unit(amount: Decimal, decimals: int) -> int:
+        return int(amount * (10 ** decimals))
 
-        for price, qty in asks:
-            if qty == 0.0:
-                self._asks.pop(price, None)
-            else:
-                self._asks[price] = qty
-
-        self._bid_cache.clear()
-        self._ask_cache.clear()
-
-    def get_top_bids(self, depth: int = 10) -> List[Tuple[float, float]]:
-        if not self._bid_cache:
-            self._bid_cache = sorted(
-                self._bids.items(), key=lambda x: x[0], reverse=True
-            )
-        return self._bid_cache[:depth]
-
-    def get_top_asks(self, depth: int = 10) -> List[Tuple[float, float]]:
-        if not self._ask_cache:
-            self._ask_cache = sorted(self._asks.items(), key=lambda x: x[0])
-        return self._ask_cache[:depth]
-
-    def calculate_vwap(self, depth: int = 5) -> Tuple[float, float]:
-        bids = self.get_top_bids(depth)
-        asks = self.get_top_asks(depth)
-
-        bid_vol = sum(q for _, q in bids)
-        ask_vol = sum(q for _, q in asks)
-
-        bid_vwap = sum(p * q for p, q in bids) / bid_vol if bid_vol else 0.0
-        ask_vwap = sum(p * q for p, q in asks) / ask_vol if ask_vol else 0.0
-
-        return bid_vwap, ask_vwap
-
-
-def fast_hmac_sha256(secret: bytes, message: bytes) -> str:
-    return hmac.new(secret, message, hashlib.sha256).hexdigest()
+    @staticmethod
+    def from_base_unit(amount: int, decimals: int) -> Decimal:
+        return Decimal(amount) / (10 ** decimals)
