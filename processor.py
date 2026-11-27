@@ -1,36 +1,24 @@
-import json
-from typing import Any, Dict, List
-from decimal import Decimal, ROUND_HALF_UP
+import decimal
+from typing import Dict, Any, Optional
 
-class CryptoDataProcessor:
-    @staticmethod
-    def format_balance(amount: str, precision: int = 8) -> str:
-        return str(Decimal(amount).quantize(Decimal('1.' + '0' * precision), rounding=ROUND_HALF_UP))
+def normalize_crypto_data(data: Dict[str, Any]) -> Dict[str, Any]:
+    """Standardizes financial precision for crypto payloads."""
+    context = decimal.Context(prec=28, rounding=decimal.ROUND_HALF_UP)
+    normalized = {}
+    
+    for key, value in data.items():
+        if isinstance(value, (int, float, str)) and key in ('price', 'amount', 'fee'):
+            try:
+                normalized[key] = context.create_decimal(str(value))
+            except (decimal.InvalidOperation, ValueError):
+                normalized[key] = None
+        else:
+            normalized[key] = value
+    return normalized
 
-    @staticmethod
-    def sanitize_orderbook(data: Dict[str, Any]) -> Dict[str, List[List[str]]]:
-        sanitized = {"bids": [], "asks": []}
-        for side in ["bids", "asks"]:
-            if side in data:
-                sanitized[side] = [[str(p), str(a)] for p, a in data[side]]
-        return sanitized
+def validate_order_payload(data: Dict[str, Any]) -> bool:
+    required_keys = {'symbol', 'price', 'amount'}
+    return required_keys.issubset(data.keys()) and all(data.values())
 
-    @staticmethod
-    def calculate_mid_price(bid: str, ask: str) -> Decimal:
-        return (Decimal(bid) + Decimal(ask)) / Decimal('2')
-
-    @staticmethod
-    def validate_payload(data: Any) -> bool:
-        try:
-            json.dumps(data)
-            return isinstance(data, (dict, list))
-        except (TypeError, ValueError):
-            return False
-
-    @classmethod
-    def process_ticker(cls, ticker: Dict[str, Any]) -> Dict[str, str]:
-        return {
-            "symbol": str(ticker.get("symbol", "UNKNOWN")),
-            "price": cls.format_balance(str(ticker.get("price", "0"))),
-            "volume": cls.format_balance(str(ticker.get("volume", "0")))
-        }
+def format_ticker(symbol: str) -> str:
+    return symbol.upper().replace('/', '_')
