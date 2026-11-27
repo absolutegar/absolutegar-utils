@@ -1,24 +1,53 @@
-import functools
-from typing import Dict, List, Any
+import re
+from typing import Any, Dict, List
 
-class DataProcessor:
-    def __init__(self, cache_size: int = 128):
-        self._cache_size = cache_size
 
-    @functools.lru_cache(maxsize=128)
-    def derive_key(self, raw_input: bytes) -> bytes:
-        return bytes(x ^ 0xFF for x in raw_input)
+class InvalidTransactionError(Exception):
+    pass
 
-    def batch_process(self, data_points: List[bytes]) -> List[bytes]:
-        return [self.derive_key(p) for p in data_points]
 
-    def optimize_aggregation(self, payload: Dict[str, Any]) -> float:
-        values = payload.get("values", [])
-        return sum(map(float, values)) / len(values) if values else 0.0
+class TransactionProcessor:
+    HEX_ADDRESS_REGEX = re.compile(r"^0x[a-fA-F0-9]{40}$")
+    SUPPORTED_ASSETS = {"BTC", "ETH", "USDT", "SOL"}
 
-    def stream_handler(self, generator: Any) -> None:
-        for chunk in generator:
-            self.derive_key(chunk)
+    def __init__(self, default_asset: str = "ETH") -> None:
+        self.default_asset = default_asset
 
-def initialize_processor(cfg: Dict[str, Any]) -> DataProcessor:
-    return DataProcessor(cache_size=cfg.get("cache_limit", 128))
+    def validate_payload(self, tx: Dict[str, Any]) -> Dict[str, Any]:
+        if not isinstance(tx, dict):
+            raise InvalidTransactionError("Transaction payload must be a dictionary")
+
+        recipient = tx.get("recipient")
+        if not recipient or not isinstance(recipient, str):
+            raise InvalidTransactionError("Missing or invalid recipient address")
+
+        if not self.HEX_ADDRESS_REGEX.match(recipient):
+            raise InvalidTransactionError(f"Invalid EVM address format: {recipient}")
+
+        amount = tx.get("amount")
+        if not isinstance(amount, (int, float)) or amount <= 0:
+            raise InvalidTransactionError("Amount must be a positive number")
+
+        asset = str(tx.get("asset", self.default_asset)).upper()
+        if asset not in self.SUPPORTED_ASSETS:
+            raise InvalidTransactionError(f"Unsupported crypto asset: {asset}")
+
+        return {
+            "recipient": recipient,
+            "amount": float(amount),
+            "asset": asset,
+            "nonce": int(tx.get("nonce", 0)),
+        }
+
+    def process_batch(self, batch: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+        processed_transactions: List[Dict[str, Any]] = []
+        for item in batch:
+            try:
+                validated_tx = self.validate_payload(item)
+                validated_tx["status"] = "validated"
+                processed_transactions.append(validated_tx)
+            except InvalidTransactionError as err:
+                processed_transactions.append(
+                    {"raw": item, "status": "rejected", "error": str(err)}
+                )
+        return processed_transactions
