@@ -1,26 +1,18 @@
-import hashlib
-import hmac
 import time
-from typing import Dict, Any
+import functools
+from typing import Callable, Any, Type
 
-def generate_signature(api_secret: str, message: str) -> str:
-    return hmac.new(
-        api_secret.encode('utf-8'),
-        message.encode('utf-8'),
-        hashlib.sha256
-    ).hexdigest()
-
-def get_timestamp() -> int:
-    return int(time.time() * 1000)
-
-def sanitize_params(params: Dict[str, Any]) -> Dict[str, Any]:
-    return {k: v for k, v in params.items() if v is not None}
-
-class CryptoFormatter:
-    @staticmethod
-    def format_amount(amount: float, precision: int = 8) -> str:
-        return f"{amount:.{precision}f}"
-
-    @staticmethod
-    def validate_pair(pair: str) -> bool:
-        return isinstance(pair, str) and "_" in pair
+def retry(exceptions: tuple[Type[Exception], ...], retries: int = 3, delay: float = 1.0):
+    def decorator(func: Callable):
+        @functools.wraps(func)
+        def wrapper(*args: Any, **kwargs: Any) -> Any:
+            last_exception = None
+            for i in range(retries):
+                try:
+                    return func(*args, **kwargs)
+                except exceptions as e:
+                    last_exception = e
+                    time.sleep(delay * (2 ** i))
+            raise last_exception
+        return wrapper
+    return decorator
