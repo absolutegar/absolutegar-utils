@@ -1,30 +1,26 @@
 import os
-import json
-from typing import Any, Dict
+from typing import Dict, Any, Optional
 
-class ConfigLoader:
-    def __init__(self, defaults: Dict[str, Any] = None):
-        self.defaults = defaults or {}
+class Config:
+    """Centralized configuration management for crypto utilities."""
 
-    def load(self, file_path: str) -> Dict[str, Any]:
-        config = self.defaults.copy()
-        if os.path.exists(file_path):
-            with open(file_path, 'r') as f:
-                try:
-                    file_data = json.load(f)
-                    config.update(file_data)
-                except json.JSONDecodeError:
-                    pass
-        return config
+    def __init__(self, env: str = "production") -> None:
+        self.env: str = env
+        self.settings: Dict[str, Any] = {
+            "rpc_url": os.getenv("RPC_URL", "https://mainnet.infura.io/v3/"),
+            "timeout": int(os.getenv("REQUEST_TIMEOUT", "30")),
+            "retry_limit": int(os.getenv("RETRY_LIMIT", "3")),
+            "debug": os.getenv("DEBUG", "false").lower() == "true"
+        }
 
-def get_env_config(key: str, default: Any = None) -> Any:
-    return os.getenv(key, default)
+    def get(self, key: str, default: Optional[Any] = None) -> Any:
+        """Retrieve a specific configuration value."""
+        return self.settings.get(key, default)
 
-def load_app_config(path: str = 'config.json') -> Dict[str, Any]:
-    defaults = {
-        'rpc_url': 'https://mainnet.infura.io/v3/default',
-        'timeout': 30,
-        'retries': 3
-    }
-    loader = ConfigLoader(defaults)
-    return loader.load(path)
+    def update(self, key: str, value: Any) -> None:
+        """Update an existing configuration setting."""
+        self.settings[key] = value
+
+def load_config() -> Config:
+    """Factory function for creating a Config instance."""
+    return Config(env=os.getenv("APP_ENV", "production"))
