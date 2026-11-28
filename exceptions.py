@@ -1,26 +1,26 @@
-class AbsoluteGarError(Exception):
+class AbsolutegarError(Exception):
     """Base exception for absolutegar-utils."""
 
+class DataProcessingError(AbsolutegarError):
+    """Raised when data operations fail."""
 
-class ConfigurationError(AbsoluteGarError):
-    """Raised on invalid environment configuration."""
+class ValidationError(AbsolutegarError):
+    """Raised when input validation fails."""
 
+class OptimizationError(AbsolutegarError):
+    """Raised when performance tuning fails."""
 
-class ConnectionError(AbsoluteGarError):
-    """Raised on crypto node connection failures."""
+class RateLimitError(AbsolutegarError):
+    """Raised when throughput limits are exceeded."""
 
+class MemoryExceededError(AbsolutegarError):
+    """Raised when memory constraints are breached."""
 
-class ValidationError(AbsoluteGarError):
-    """Raised on invalid payload data."""
-
-
-class SigningError(AbsoluteGarError):
-    """Raised during transaction signing process."""
-
-
-class RateLimitError(AbsoluteGarError):
-    """Raised when API rate limits exceeded."""
-
-
-class TimeoutError(AbsoluteGarError):
-    """Raised when network operations exceed limits."""
+__all__ = [
+    'AbsolutegarError',
+    'DataProcessingError',
+    'ValidationError',
+    'OptimizationError',
+    'RateLimitError',
+    'MemoryExceededError'
+]
